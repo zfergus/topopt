@@ -7,7 +7,7 @@ TopOptBoundaryConditions
 ------------------------
 
 .. automodule:: topopt.boundary_conditions.TopOptBoundaryConditions
-    :members: fixed_nodes, forces, passive_elements
+    :members: fixed_nodes, forces, passive_elements, active_elements
     :undoc-members:
     :special-members: __init__
 

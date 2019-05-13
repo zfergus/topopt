@@ -6,7 +6,7 @@ import matplotlib.cm as colormaps
 import matplotlib.pyplot as plt
 import numpy
 
-from topopt.utils import xy_to_id, id_to_xy, load_colormap
+from topopt.utils import id_to_xy
 
 
 class GUI(object):
@@ -17,14 +17,34 @@ class GUI(object):
     """
 
     def __init__(self, problem, title=""):
-        """Create a plot and draw the initial design."""
+        """
+        Create a plot and draw the initial design.
+
+        Args:
+            problem (topopt.TopOptProblem): problem to visualize
+            title (str): title of the plot
+        """
         self.problem = problem
+        self.title = title
         plt.ion()  # Ensure that redrawing is possible
         self.init_subplots()
         plt.xlabel(title)
         # self.fig.tight_layout()
         self.plot_force_arrows()
         self.fig.show()
+
+    def __str__(self):
+        """Create a string representation of the solver."""
+        return self.__class__.__name__
+
+    def __format__(self, format_spec):
+        """Create a formated representation of the solver."""
+        return str(self)
+
+    def __repr__(self):
+        """Create a representation of the solver."""
+        return '{}(problem={!r}, title="{}")'.format(
+                self.__class__.__name__, self.problem, self.title)
 
     def init_subplots(self):
         """Create the subplots."""

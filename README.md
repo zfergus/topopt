@@ -1,3 +1,3 @@
 # TopOpt
 
-A topology optimization library in Python.
+A Python Library for Topology Optimization

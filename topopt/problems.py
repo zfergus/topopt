@@ -1,35 +1,31 @@
 """Topology optimization problem to solve."""
 from __future__ import division
 
-import numpy
+import abc
 
+import numpy
 import scipy.sparse
 import cvxopt
 import cvxopt.cholmod
 
-from topopt.utils import deleterowcol
+from .boundary_conditions import TopOptBoundaryConditions
+from .utils import deleterowcol
 
 
-class TopOptProblem:
+class TopOptProblem(abc.ABC):
     """Abstract topology optimization problem."""
 
     @staticmethod
-    def lk(E=1.0, nu=0.3):
+    def lk(E: float = 1.0, nu: float = 0.3) -> numpy.ndarray:
         """
         Build the element stiffness matrix.
 
-        Parameters
-        ----------
-            E : float
-                Young's modulus of the material
-            nu : float
-                Poisson's ratio of the material
+        Parameters:
+            E: The Young's modulus of the material.
+            nu: The Poisson's ratio of the material.
 
-        Returns
-        -------
-        numpy.ndarray
+        Returns:
             The element stiffness matrix for the material
-
         """
         k = numpy.array([
             0.5 - nu / 6., 0.125 + nu / 8., -0.25 - nu / 12.,
@@ -46,21 +42,16 @@ class TopOptProblem:
             [k[7], k[2], k[1], k[4], k[3], k[6], k[5], k[0]]])
         return KE
 
-    def __init__(self, nelx, nely, penal, bc):
+    def __init__(self, nelx: int, nely: int, penal: float,
+                 bc: TopOptBoundaryConditions):
         """
         Create the topology optimization problem.
 
-        Parameters
-        ----------
-            nelx : int
-                Number of elements in the x direction
-            nely : int
-                Number of elements in the x direction
-            penal : float
-                Penalty value used to penalize fractional densities in SIMP
-            bc : topopt.boundary_conditions.TopOptBoundaryConditions
-                Boundary conditions of the problem
-
+        Parameters:
+            nelx: Number of elements in the x direction.
+            nely: Number of elements in the x direction.
+            penal: Penalty value used to penalize fractional densities in SIMP.
+            bc: Boundary conditions of the problem.
         """
         # Problem size
         self.nelx = nelx
@@ -79,45 +70,44 @@ class TopOptProblem:
 
         # FE: Build the index vectors for the for coo matrix format.
         self.nu = 0.3
-        self.build_indices(nelx, nely)
+        self.build_indices()
 
         # BC's and support (half MBB-beam)
         self.bc = bc
         dofs = numpy.arange(self.ndof)
-        self.fixed = bc.get_fixed_nodes()
+        self.fixed = bc.fixed_nodes
         self.free = numpy.setdiff1d(dofs, self.fixed)
 
         # RHS and Solution vectors
-        self.f = bc.get_forces()
+        self.f = bc.forces
         self.u = numpy.zeros(self.f.shape)
         self.nloads = self.f.shape[1]
 
         # Per element objective
         self.obje = numpy.zeros(nely * nelx)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Create a string representation of the problem."""
         return self.__class__.__name__
 
-    def __format__(self, format_spec):
+    def __format__(self, format_spec) -> str:
         """Create a formated representation of the problem."""
         return str(self)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Create a representation of the problem."""
-        return "{:s}(nelx={:d}, nely={:d}, penal={:g}, bc={:s})".format(
-            self.__class__.__name__, self.nelx, self.nely, self.penal,
-            repr(self.bc))
+        return "{}(nelx={:d}, nely={:d}, penal={:g}, bc={!r})".format(
+            self.__class__.__name__, self.nelx, self.nely, self.penal, self.bc)
 
-    def build_indices(self, nelx, nely):
+    def build_indices(self) -> None:
         """Build the index vectors for the finite element coo matrix format."""
         self.KE = self.lk(E=self.Emax, nu=self.nu)
-        self.edofMat = numpy.zeros((nelx * nely, 8), dtype=int)
-        for elx in range(nelx):
-            for ely in range(nely):
-                el = ely + elx * nely
-                n1 = (nely + 1) * elx + ely
-                n2 = (nely + 1) * (elx + 1) + ely
+        self.edofMat = numpy.zeros((self.nelx * self.nely, 8), dtype=int)
+        for elx in range(self.nelx):
+            for ely in range(self.nely):
+                el = ely + elx * self.nely
+                n1 = (self.nely + 1) * elx + ely
+                n2 = (self.nely + 1) * (elx + 1) + ely
                 self.edofMat[el, :] = numpy.array([
                     2 * n1 + 2, 2 * n1 + 3, 2 * n2 + 2, 2 * n2 + 3, 2 * n2,
                     2 * n2 + 1, 2 * n1, 2 * n1 + 1])
@@ -125,27 +115,66 @@ class TopOptProblem:
         self.iK = numpy.kron(self.edofMat, numpy.ones((8, 1))).flatten()
         self.jK = numpy.kron(self.edofMat, numpy.ones((1, 8))).flatten()
 
-    def penalized_densities(self, x):
-        """Compute the penalized densties."""
+    def penalized_densities(self, x: numpy.ndarray) -> numpy.ndarray:
+        """
+        Compute the penalized densties.
+
+        Parameters:
+            x: The density variables to penalize.
+
+        Returns:
+            The penalized densities used for SIMP.
+        """
         return self.Emin + (self.Emax - self.Emin) * x**self.penal
 
-    def diff_penalized_densities(self, x):
-        """Compute the gradient of penalized densties."""
+    def diff_penalized_densities(self, x: numpy.ndarray) -> numpy.ndarray:
+        """
+        Compute the gradient of penalized densties.
+
+        Parameters:
+            x: The density variables to penalize.
+
+        Returns:
+            The gradient of penalized densties.
+        """
         return (self.Emax - self.Emin) * self.penal * x**(self.penal - 1)
 
-    def build_K(self, xPhys, remove_constrained=True):
-        """Build the stiffness matrix for the problem."""
+    def build_K(self, xPhys: numpy.ndarray,
+                remove_constrained: bool = True) -> numpy.ndarray:
+        """
+        Build the stiffness matrix for the problem.
+
+        Parameters:
+            xPhys: The element densisities used to build the stiffness matrix.
+            remove_constrained: Should the constrained nodes be removed?
+
+        Returns:
+            The stiffness matrix for the mesh.
+        """
         sK = ((self.KE.flatten()[numpy.newaxis]).T *
               self.penalized_densities(xPhys)).flatten(order='F')
         K = scipy.sparse.coo_matrix(
             (sK, (self.iK, self.jK)), shape=(self.ndof, self.ndof))
-        # Remove constrained dofs from matrix and convert to coo
         if remove_constrained:
+            # Remove constrained dofs from matrix and convert to coo
             K = deleterowcol(K.tocsc(), self.fixed, self.fixed).tocoo()
         return K
 
-    def compute_displacements(self, xPhys):
-        """Compute the displacments given the densities."""
+    def compute_displacements(self, xPhys: numpy.ndarray) -> numpy.ndarray:
+        """
+        Compute the displacements given the densities.
+
+        Compute the displacment, :math:`u`, using linear elastic finite
+        element analysis (solving :math:`Ku = f` where :math:`K` is the
+        stiffness matrix and :math:`f` is the force vector).
+
+        Parameters:
+            xPhys: The element densisities used to build the stiffness matrix.
+
+        Returns:
+            The distplacements solve using linear elastic finite element
+            analysis.
+        """
         # Setup and solve FE problem
         K = self.build_K(xPhys)
         K = cvxopt.spmatrix(
@@ -157,22 +186,58 @@ class TopOptProblem:
         new_u[self.free, :] = numpy.array(F)[:, :]
         return new_u
 
-    def update_displacements(self, xPhys):
-        """Update the displacments of the problem."""
+    def update_displacements(self, xPhys: numpy.ndarray) -> None:
+        """
+        Update the displacements of the problem.
+
+        Parameters:
+            xPhys: The element densisities used to compute the displacements.
+        """
         self.u[:, :] = self.compute_displacements(xPhys)
 
-    def compute_objective(self, xPhys, dobj):
-        """Compute objective and its gradient."""
-        raise NotImplementedError(
-            "Subclasses of {} must override compute_objective()!".format(
-                self.__class__.__name__))
+    @abc.abstractmethod
+    def compute_objective(
+            self, xPhys: numpy.ndarray, dobj: numpy.ndarray) -> float:
+        """
+        Compute objective and its gradient.
+
+        Parameters:
+            xPhys: The design variables.
+            dobj: The gradient of the objective.
+
+        Returns:
+            The objective value.
+        """
+        pass
 
 
 class ComplianceProblem(TopOptProblem):
-    """Topology optimization problem to minimize compliance."""
+    r"""
+    Topology optimization problem to minimize compliance.
 
-    def compute_objective(self, xPhys, dobj):
-        """Compute compliance and its gradient."""
+    :math:`\begin{aligned}
+    \min_{\mathbf{x}} \quad & \mathbf{f}^T\mathbf{u}(\mathbf{x}) =
+    \mathbf{f}^T\left[\mathbf{K}(\mathbf{x})\right]^{-1}\mathbf{f}\\
+    \textrm{s.t.} \quad & \sum_e V(x_e) \leq V_\text{frac} \\
+    \end{aligned}`
+
+    where :math:`\mathbf{f}` are the forces, :math:`\mathbf{u}` are the \
+    displacements, :math:`\mathbf{K}` is the striffness matrix, and :math:`V`
+    is the volume.
+    """
+
+    def compute_objective(
+            self, xPhys: numpy.ndarray, dobj: numpy.ndarray) -> float:
+        """
+        Compute compliance and its gradient.
+
+        Parameters:
+            xPhys: The element densities.
+            dobj: The gradient of compliance.
+
+        Returns:
+            The compliance value.
+        """
         obj = 0.0
         dobj[:] = 0.0
         rho = self.penalized_densities(xPhys)
@@ -190,20 +255,16 @@ class MechanismSynthesisProblem(TopOptProblem):
     """Topology optimization problem to generate compliance mechanisms."""
 
     @staticmethod
-    def lk(E=1.0, nu=0.3):
+    def lk(E: float = 1.0, nu: float = 0.3):
         """
         Build the element stiffness matrix.
 
-        Parameters
-        ----------
-            E (float): Young's modulus of the material (Default: 1.0)
-            nu (float): Poisson's ratio of the material (Default: 0.3)
-        ----------
+        Parameters:
+            E: Young's modulus of the material.
+            nu: Poisson's ratio of the material.
 
-        Returns
-        -------
+        Returns:
             The element stiffness matrix for the material.
-
         """
         return TopOptProblem.lk(1e0, nu)
 
@@ -246,15 +307,35 @@ class VonMisesStressProblem(TopOptProblem):
     """
     Topology optimization problem to minimize stress.
 
-    TODO: Currently this problem minimizes compliance and computes stress on
-    the side. This needs to be replaced to match the promise of minimizing
-    stress.
+    Todo:
+        * Currently this problem minimizes compliance and computes stress on
+          the side. This needs to be replaced to match the promise of
+          minimizing stress.
     """
 
     @staticmethod
-    def B(side):
-        """Precomputed strain-displacement matrix."""
-        # TODO: Check that this is not -B
+    def B(side: float) -> numpy.ndarray:
+        r"""
+        Construct a strain-displacement matrix for a 2D regular grid.
+
+        :math:`B = \frac{1}{\text{side}}\begin{bmatrix}
+        \frac{1}{2} & 0 & -\frac{1}{2} & 0 & -\frac{1}{2} & 0 & \frac{1}{2} &
+        0 \\
+        0 & \frac{1}{2} & 0 & \frac{1}{2} & 0 & -\frac{1}{2} & 0 &
+        -\frac{1}{2} \\
+        \frac{1}{2} & \frac{1}{2} & \frac{1}{2} & -\frac{1}{2} & -\frac{1}{2} &
+        -\frac{1}{2} & -\frac{1}{2} & \frac{1}{2}
+        \end{bmatrix}`
+
+        Todo:
+            * Check that this is not -B
+
+        Parameters:
+            side: The side length of the square elements.
+
+        Returns:
+            The strain-displacement matrix for a 2D regular grid.
+        """
         n = -0.5 / side
         p = 0.5 / side
         return numpy.array([[p, 0, n, 0, n, 0, p, 0],
@@ -263,7 +344,21 @@ class VonMisesStressProblem(TopOptProblem):
 
     @staticmethod
     def E(nu):
-        """Precomputed constitutive matrix."""
+        r"""
+        Construct a constitutive matrix for a 2D regular grid.
+
+        :math:`E = \frac{1}{1 - \nu^2}\begin{bmatrix}
+        1 & \nu & 0 \\
+        \nu & 1 & 0 \\
+        0 & 0 & \frac{1 - \nu}{2}
+        \end{bmatrix}`
+
+        Parameters:
+            nu : The Poisson's ratio of the material.
+
+        Returns:
+            The constitutive matrix for a 2D regular grid.
+        """
         return numpy.array([[1, nu, 0],
                             [nu, 1, 0],
                             [0, 0, (1 - nu) / 2.]]) / (1 - nu**2)
@@ -295,11 +390,55 @@ class VonMisesStressProblem(TopOptProblem):
         return dK
 
     @staticmethod
-    def sigma_pow(s11, s22, s12, p):
+    def sigma_pow(s11: numpy.ndarray, s22: numpy.ndarray, s12: numpy.ndarray,
+                  p: float) -> numpy.ndarray:
+        r"""
+        Compute the von Mises stress raised to the :math:`p^{\text{th}}` power.
+
+        :math:`\sigma^p = \left(\sqrt{\sigma_{11}^2 - \sigma_{11}\sigma_{22} +
+        \sigma_{22}^2 + 3\sigma_{12}^2}\right)^p`
+
+        Todo:
+            * Properly document what the sigma variables represent.
+            * Rename the sigma variables to something more readable.
+
+        Parameters:
+            s11: :math:`\sigma_{11}`
+            s22: :math:`\sigma_{22}`
+            s12: :math:`\sigma_{12}`
+            p: The power (:math:`p`) to raise the von Mises stress.
+
+        Returns:
+            The von Mises stress to the :math:`p^{\text{th}}` power.
+        """
         return numpy.sqrt(s11**2 - s11 * s22 + s22**2 + 3 * s12**2)**p
 
     @staticmethod
-    def dsigma_pow(s11, s22, s12, ds11, ds22, ds12, p):
+    def dsigma_pow(s11: numpy.ndarray, s22: numpy.ndarray, s12: numpy.ndarray,
+                   ds11: numpy.ndarray, ds22: numpy.ndarray,
+                   ds12: numpy.ndarray, p: float) -> numpy.ndarray:
+        r"""
+        Compute the gradient of the stress to the :math:`p^{\text{th}}` power.
+
+        :math:`\nabla\sigma^p = \frac{p\sigma^{p-1}}{2\sigma}\nabla(\sigma^2)`
+
+        Todo:
+            * Properly document what the sigma variables represent.
+            * Rename the sigma variables to something more readable.
+
+        Parameters:
+            s11: :math:`\sigma_{11}`
+            s22: :math:`\sigma_{22}`
+            s12: :math:`\sigma_{12}`
+            ds11: :math:`\nabla\sigma_{11}`
+            ds22: :math:`\nabla\sigma_{22}`
+            ds12: :math:`\nabla\sigma_{12}`
+            p: The power (:math:`p`) to raise the von Mises stress.
+
+        Returns:
+            The gradient of the von Mises stress to the :math:`p^{\text{th}}`
+            power.
+        """
         sigma = numpy.sqrt(s11**2 - s11 * s22 + s22**2 + 3 * s12**2)
         dinside = (2 * s11 * ds11 - s11 * ds22 - ds11 * s22 + 2 * s22 *
                    ds22 + 6 * s12 * ds12)
@@ -334,7 +473,8 @@ class VonMisesStressProblem(TopOptProblem):
 
         du = self.du.reshape((self.ndof * self.nel, self.nloads), order="F")
         rep_edofMat = (numpy.tile(self.edofMat.T, self.nel) + numpy.tile(
-            numpy.repeat(numpy.arange(self.nel) * self.ndof, self.nel), (8, 1)))
+            numpy.repeat(numpy.arange(self.nel) * self.ndof, self.nel),
+            (8, 1)))
         dEBu = sum([self.EB.dot(du[:, j][rep_edofMat])
                     for j in range(self.nloads)])
         rhodEBu = numpy.tile(rho, self.nel) * dEBu
@@ -348,11 +488,20 @@ class VonMisesStressProblem(TopOptProblem):
 
         return obj
 
-    def test_calculate_objective(self, xPhys, dobj, p=4, dx=1e-6):
+    def test_calculate_objective(
+            self, xPhys: numpy.ndarray, dobj: numpy.ndarray, p: float = 4,
+            dx: float = 1e-6) -> float:
         """
-        Calculate the gradient of the von Mises stress using finite
-        differences given the densities x. Optionally, provide a delta x
-        (default: 1e-6).
+        Calculate the gradient of the stresses using finite differences.
+
+        Parameters:
+            xPhys: The element densities.
+            dobj: The gradient of the stresses to compute.
+            p: The exponent for computing the softmax of the stresses.
+            dx: The difference in x values used for finite differences.
+
+        Returns:
+            The analytic objective value.
         """
         dobja = dobj.copy()  # Analytic gradient
         obja = self.compute_objective2(xPhys, dobja, p)  # Analytic objective

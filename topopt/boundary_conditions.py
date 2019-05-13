@@ -18,8 +18,16 @@ class TopOptBoundaryConditions(abc.ABC):
     Functionalty for geting fixed nodes, forces, and passive elements.
     """
 
+    __all__ = ["fixed_nodes", "forces", "passive_elements", "active_elements"]
+
     def __init__(self, nelx, nely):
-        """Create the boundary conditions with the size of the grid."""
+        """
+        Create the boundary conditions with the size of the grid.
+
+        Args:
+            nelx (int): number of elements in the x direction
+            nely (int): number of elements in the y direction
+        """
         self.nelx, self.nely = nelx, nely
 
     def __str__(self) -> str:
@@ -32,7 +40,8 @@ class TopOptBoundaryConditions(abc.ABC):
 
     def __repr__(self) -> str:
         """Construct a representation of the boundary conditions."""
-        return "{}(nelx={:d}, nely={:d})".format(self, self.nelx, self.nely)
+        return "{}(nelx={:d}, nely={:d})".format(
+            self.__class__.__name__, self.nelx, self.nely)
 
     @abc.abstractproperty
     def fixed_nodes(self) -> numpy.ndarray:
@@ -49,9 +58,19 @@ class TopOptBoundaryConditions(abc.ABC):
         """:obj:`numpy.ndarray`: Passive elements to be set to zero density."""
         return numpy.array([])
 
+    @property
+    def active_elements(self) -> numpy.ndarray:
+        """:obj:`numpy.ndarray`: Active elements to be set to full density."""
+        return numpy.array([])
+
 
 class MBBBeamBoundaryConditions(TopOptBoundaryConditions):
-    """Boundary conditions for the Messerschmitt–Bölkow–Blohm (MBB) beam."""
+    """
+    Boundary conditions for the Messerschmitt–Bölkow–Blohm (MBB) beam.
+
+    .. image:: https://bit.ly/2HlzZXL
+       :alt: Messerschmitt–Bölkow–Blohm (MBB) beam
+    """
 
     @property
     def fixed_nodes(self):
@@ -71,7 +90,12 @@ class MBBBeamBoundaryConditions(TopOptBoundaryConditions):
 
 
 class LBracketBoundaryConditions(TopOptBoundaryConditions):
-    """Boundary conditions for a L-shaped bracket."""
+    """
+    Boundary conditions for a L-shaped bracket.
+
+    .. image:: https://bit.ly/2JBDQCx
+        :alt: L-bracket
+    """
 
     def __init__(self, nelx, nely, minx, maxy):
         """Create the boundary conditions with the size of the grid."""
@@ -82,9 +106,11 @@ class LBracketBoundaryConditions(TopOptBoundaryConditions):
     def __repr__(self):
         """Construct a representation of the boundary conditions."""
         return "{}(nelx={:d}, nely={:d}, minx={:d}, maxy={:d})".format(
-            self, self.nelx, self.nely, self.passive_min_x, self.passive_max_y)
+            self.__class__.__name__, self.nelx, self.nely, self.passive_min_x,
+            self.passive_max_y)
 
-    def get_fixed_nodes(self):
+    @property
+    def fixed_nodes(self):
         """Return a list of fixed nodes for the problem."""
         x = numpy.arange(self.passive_min_x)
         topx_to_id = numpy.vectorize(
@@ -93,7 +119,8 @@ class LBracketBoundaryConditions(TopOptBoundaryConditions):
         fixed = numpy.union1d(2 * ids, 2 * ids + 1)
         return fixed
 
-    def get_forces(self):
+    @property
+    def forces(self):
         """Return the force vector for the problem."""
         ndof = 2 * (self.nelx + 1) * (self.nely + 1)
         f = numpy.zeros((ndof, 1))
@@ -105,7 +132,8 @@ class LBracketBoundaryConditions(TopOptBoundaryConditions):
             f[2 * id + 1, 0] = -1
         return f
 
-    def get_passive_elements(self):
+    @property
+    def passive_elements(self):
         """Return a list of the passive elements to be set to density 0."""
         X, Y = numpy.mgrid[self.passive_min_x:self.passive_max_x + 1,
                            self.passive_min_y:self.passive_max_y + 1]
@@ -118,7 +146,8 @@ class LBracketBoundaryConditions(TopOptBoundaryConditions):
 class IBeamBoundaryConditions(TopOptBoundaryConditions):
     """Boundary conditions for an I-shaped beam."""
 
-    def get_fixed_nodes(self):
+    @property
+    def fixed_nodes(self):
         """Return a list of fixed nodes for the problem."""
         x = numpy.arange(self.nelx + 1)
         botx_to_id = numpy.vectorize(
@@ -127,7 +156,8 @@ class IBeamBoundaryConditions(TopOptBoundaryConditions):
         fixed = numpy.union1d(ids, ids + 1)
         return fixed
 
-    def get_forces(self):
+    @property
+    def forces(self):
         """Return the force vector for the problem."""
         ndof = 2 * (self.nelx + 1) * (self.nely + 1)
         x = numpy.arange(self.nelx + 1)
@@ -138,7 +168,8 @@ class IBeamBoundaryConditions(TopOptBoundaryConditions):
         f[ids] = -1
         return f
 
-    def get_passive_elements(self):
+    @property
+    def passive_elements(self):
         """Return a list of the passive elements to be set to density 0."""
         X1, Y1 = numpy.mgrid[
             0:self.nelx // 3, self.nely // 4:3 * self.nely // 4]
@@ -155,7 +186,8 @@ class IBeamBoundaryConditions(TopOptBoundaryConditions):
 class IIBeamBoundaryConditions(IBeamBoundaryConditions):
     """Boundary conditions for an II-shaped beam."""
 
-    def get_passive_elements(self):
+    @property
+    def passive_elements(self):
         """Return a list of the passive elements to be set to density 0."""
         X1, Y1 = numpy.mgrid[
             0:self.nelx // 5, self.nely // 4:3 * self.nely // 4]

@@ -20,7 +20,8 @@ class HoleBoundaryConditions(TopOptBoundaryConditions):
     The bottom boundary is fixed and loads are applied to the top boundary.
     """
 
-    def get_fixed_nodes(self):
+    @property
+    def fixed_nodes(self):
         """Return a list of fixed nodes for the problem."""
         x = numpy.arange(self.nelx + 1)
         botx_to_id = numpy.vectorize(
@@ -29,7 +30,8 @@ class HoleBoundaryConditions(TopOptBoundaryConditions):
         fixed = numpy.union1d(ids, ids + 1)
         return fixed
 
-    def get_forces(self):
+    @property
+    def forces(self):
         """Return the force vector for the problem."""
         ndof = 2 * (self.nelx + 1) * (self.nely + 1)
         x = numpy.arange(0, self.nelx + 1, 10)

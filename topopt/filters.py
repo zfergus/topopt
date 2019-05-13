@@ -14,8 +14,8 @@ class Filter(object):
 
         Build (and assemble) the index+data vectors for the coo matrix format.
         """
-        self._repr_string = "{:s}(nelx={:d}, nely={:d}, rmin={:g})".format(
-            self, nelx, nely, rmin)
+        self._repr_string = "{}(nelx={:d}, nely={:d}, rmin={:g})".format(
+            self.__class__.__name__, nelx, nely, rmin)
         nfilter = int(nelx * nely * ((2 * (numpy.ceil(rmin) - 1) + 1)**2))
         iH = numpy.zeros(nfilter)
         jH = numpy.zeros(nfilter)
@@ -50,7 +50,7 @@ class Filter(object):
         """Create a formated representation of the filter."""
         return str(self)
 
-    def __repr__(self, format_spec):
+    def __repr__(self):
         """Create a formated representation of the filter."""
         return self._repr_string
 

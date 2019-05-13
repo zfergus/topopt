@@ -1,16 +1,48 @@
+"""
+Solvers to solve topology optimization problems.
+
+Todo:
+    * Make TopOptSolver an abstract class
+    * Rename the current TopOptSolver to MMASolver(TopOptSolver)
+    * Create a TopOptSolver using originality criterion
+"""
 from __future__ import division
 
 import numpy
 import nlopt
 
-from topopt.utils import camel_case_to_spaces
+from topopt.problems import TopOptProblem
+from topopt.filters import Filter
+from topopt.guis import GUI
 
 
 class TopOptSolver:
+    """Solver for topology optimization problems using NLopt's MMA solver."""
 
-    def __init__(self, problem, volfrac, filter, gui, maxeval=2000, ftol=1e-3):
-        self.problem, self.volfrac, self.filter, self.gui = (
-            problem, volfrac, filter, gui)
+    def __init__(self, problem: TopOptProblem, volfrac: float, filter: Filter,
+                 gui: GUI, maxeval=2000, ftol=1e-3):
+        """
+        Create a solver to solve the problem.
+
+        Parameters
+        ----------
+            problem: :obj:`topopt.problems.TopOptProblem`
+                The topology optimization problem to solve.
+            volfrac: float
+                The maximum fraction of the volume to use.
+            filter: :obj:`topopt.filters.Filter`
+                A filter for the solutions to reduce artefacts.
+            gui: :obj:`topopt.guis.GUI`
+                The graphical user interface to visualize intermediate results.
+            maxeval: int
+                The maximum number of evaluations to perform.
+            ftol: float
+                A floating point tolerance for relative change.
+
+        """
+        self.problem = problem
+        self.filter = filter
+        self.gui = gui
 
         n = problem.nelx * problem.nely
         self.opt = nlopt.opt(nlopt.LD_MMA, n)
@@ -27,31 +59,84 @@ class TopOptSolver:
         # set objective and constraint functions
         self.opt.set_min_objective(self.objective_function)
         self.opt.add_inequality_constraint(self.volume_function, 0)
-        self.volfrac = volfrac # max volume fraction to use
+        self.volfrac = volfrac  # max volume fraction to use
 
         # setup filter
-        self.passive = problem.bc.get_passive_elements()
-        if self.passive is not None:
+        self.passive = problem.bc.passive_elements
+        if self.passive.size > 0:
             self.xPhys[self.passive] = 0
 
     def __str__(self):
+        """Create a string representation of the solver."""
         return self.__class__.__name__
 
     def __format__(self, format_spec):
+        """Create a formated representation of the solver."""
         return "{} with {}".format(str(self.problem), str(self))
 
-    def optimize(self, x):
+    def __repr__(self):
+        """Create a representation of the solver."""
+        return "{}(problem={!r}, volfrac={:g}, filter={!r}, gui={!r}, maxeval={:d}, ftol={:g})".format(
+                self.__class__.__name__, self.problem, self.volfrac,
+                self.filter, self.gui, self.opt.get_maxeval(),
+                self.opt.get_ftol_rel())
+
+    def optimize(self, x: numpy.ndarray) -> numpy.ndarray:
+        """
+        Optimize the problem.
+
+        Parameters
+        ----------
+            x: numpy.ndarray
+                The initial value for the design variables.
+
+        Returns
+        -------
+            The optimal value of x found.
+
+        """
         self.xPhys = x.copy()
         x = self.opt.optimize(x)
         return x
 
-    def filter_variables(self, x):
+    def filter_variables(self, x: numpy.ndarray) -> numpy.ndarray:
+        """
+        Filter the variables and impose values on passive/active variables.
+
+        Parameters
+        ----------
+            x: numpy.ndarray
+                The variables to be filtered.
+
+        Returns
+        -------
+            numpy.ndarray
+                The filtered "physical" variables.
+
+        """
         self.filter.filter_variables(x, self.xPhys)
-        if self.passive is not None:
+        if self.passive.size > 0:
             self.xPhys[self.passive] = 0
         return self.xPhys
 
-    def objective_function(self, x, dobj):
+    def objective_function(
+            self, x: numpy.ndarray, dobj: numpy.ndarray) -> float:
+        """
+        Compute the objective value and gradient.
+
+        Parameters
+        ----------
+            x: numpy.ndarray
+                The design variables for which to compute the objective.
+            dobj: numpy.ndarray
+                The gradient of the objective to compute.
+
+        Returns
+        -------
+            float
+                The objective value.
+
+        """
         # Filter design variables
         self.filter_variables(x)
 
@@ -69,7 +154,26 @@ class TopOptSolver:
 
         return obj
 
-    def objective_function_fdiff(self, x, dobj):
+    def objective_function_fdiff(self, x: numpy.ndarray, dobj: numpy.ndarray,
+                                 epsilon=1e-6) -> float:
+        """
+        Compute the objective value and gradient using finite differences.
+
+        Parameters
+        ----------
+            x: numpy.ndarray
+                The design variables for which to compute the objective.
+            dobj: numpy.ndarray
+                The gradient of the objective to compute.
+            epsilon: float
+                Change in the finite difference to compute the gradient.
+
+        Returns
+        -------
+            float
+                The objective value.
+
+        """
         obj = self.objective_function(x, dobj)
 
         x0 = x.copy()
@@ -77,18 +181,34 @@ class TopOptSolver:
         dobjf = numpy.zeros(dobj.shape)
         for i, v in enumerate(x):
             x = x0.copy()
-            x[i] += 1e-6
+            x[i] += epsilon
             o1 = self.objective_function(x, dobj)
-            x[i] = x0[i] - 1e-6
+            x[i] = x0[i] - epsilon
             o2 = self.objective_function(x, dobj)
-            dobjf[i] = (o1 - o2) / (2e-6)
+            dobjf[i] = (o1 - o2) / (2 * epsilon)
             print("finite differences: {:g}".format(
                 numpy.linalg.norm(dobjf - dobj0)))
             dobj[:] = dobj0
 
         return obj
 
-    def volume_function(self, x, dv):
+    def volume_function(self, x: numpy.ndarray, dv: numpy.ndarray) -> float:
+        """
+        Compute the volume constraint value and gradient.
+
+        Parameters
+        ----------
+            x: numpy.ndarray
+                The design variables for which to compute the volume constraint.
+            dobj: numpy.ndarray
+                The gradient of the volume constraint to compute.
+
+        Returns
+        -------
+            float
+                The volume constraint value.
+
+        """
         # Filter design variables
         self.filter_variables(x)
 
@@ -98,7 +218,7 @@ class TopOptSolver:
         # Sensitivity filtering
         self.filter.filter_volume_sensitivities(self.xPhys, dv)
 
-        return sum(self.xPhys) - self.volfrac * len(x)
+        return self.xPhys.sum() - self.volfrac * x.size
 
 
 # TODO: Seperate optimizer from TopOptSolver
@@ -128,14 +248,56 @@ class TopOptSolver:
 
 
 class MechanismSynthesisSolver(TopOptSolver):
+    """
+    Specialized solver for mechanism synthesis problems.
+
+    This solver is specially designed to create `compliant mechanisms
+    <https://en.wikipedia.org/wiki/Compliant_mechanism>`_.
+    """
 
     def __init__(self, problem, volfrac, filter, gui, maxeval=2000, ftol=1e-4):
-        TopOptSolver.__init__(
-            self, problem, volfrac, filter, gui, maxeval, ftol)
+        """
+        Create a mechanism synthesis solver to solve the problem.
+
+        Parameters
+        ----------
+            problem: :obj:`topopt.problems.TopOptProblem`
+                The topology optimization problem to solve.
+            volfrac: float
+                The maximum fraction of the volume to use.
+            filter: :obj:`topopt.filters.Filter`
+                A filter for the solutions to reduce artefacts.
+            gui: :obj:`topopt.guis.GUI`
+                The graphical user interface to visualize intermediate results.
+            maxeval: int
+                The maximum number of evaluations to perform.
+            ftol: float
+                A floating point tolerance for relative change.
+
+        """
+        super(MechanismSynthesisSolver, self).__init__(
+            problem, volfrac, filter, gui, maxeval, ftol)
         self.init_obj = None
         self.vtot = problem.nelx * problem.nely * volfrac
 
-    def objective_function(self, x, dobj):
+    def objective_function(
+            self, x: numpy.ndarray, dobj: numpy.ndarray) -> float:
+        """
+        Compute the objective value and gradient.
+
+        Parameters
+        ----------
+            x: numpy.ndarray
+                The design variables for which to compute the objective.
+            dobj: numpy.ndarray
+                The gradient of the objective to compute.
+
+        Returns
+        -------
+            float
+                The objective value.
+
+        """
         # Filter design variables
         self.filter_variables(x)
 
@@ -158,7 +320,24 @@ class MechanismSynthesisSolver(TopOptSolver):
         # print(obj * self.init_obj)
         return obj
 
-    def volume_function(self, x, dv):
+    def volume_function(self, x: numpy.ndarray, dv: numpy.ndarray) -> float:
+        """
+        Compute the volume constraint value and gradient.
+
+        Parameters
+        ----------
+            x: numpy.ndarray
+                The design variables for which to compute the volume
+                constraint.
+            dobj: numpy.ndarray
+                The gradient of the volume constraint to compute.
+
+        Returns
+        -------
+            float
+                The volume constraint value.
+
+        """
         # Filter design variables
         self.filter_variables(x)
 
