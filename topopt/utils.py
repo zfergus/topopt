@@ -5,8 +5,21 @@ import numpy
 import re
 
 
-def xy_to_id(x, y, nelx, nely, order="F"):
-    """Map from 2D indices of a matrix to 1D indices of a vector."""
+def xy_to_id(x: int, y: int, nelx: int, nely: int, order: str = "F") -> int:
+    """
+    Map from 2D indices of a node to the flattened 1D index.
+
+    Parameters:
+        x: The x-coordinate of the node's positions.
+        y: The y-coordinate of the node's positions.
+        nelx: The number of elements in the x-direction.
+        nely: The number of elements in the y-direction.
+        order: The order of indecies. "F" for Fortran/column-major order and
+            "C" for C/row-major order.
+
+    Returns:
+        The index of the node in the flattened version.
+    """
     if order == "C":
         return (y * (nelx + 1)) + x
     else:
