@@ -1,5 +1,4 @@
 """Boundary conditions for topology optimization (forces and fixed nodes)."""
-from __future__ import division
 
 # Import standard library
 import abc

@@ -1,12 +1,12 @@
 Solvers
 =======
 
-.. automodule:: topopt.solvers
+.. automodule:: topopt.mechanisms.solvers
 
 Base Solver
 -----------
 
-.. autoclass:: topopt.solvers.TopOptSolver
+.. autoclass:: topopt.mechanisms.solvers.MechanismSynthesisSolver
     :members:
     :undoc-members:
     :special-members: __init__

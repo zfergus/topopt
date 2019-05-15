@@ -18,15 +18,7 @@ Compliance Problem
     :members:
     :undoc-members:
     :special-members: __init__
-
-Mechanism Synthesis Problem
----------------------------
-
-.. autoclass:: topopt.problems.MechanismSynthesisProblem
-    :members:
-    :undoc-members:
-    :special-members: __init__
-
+    
 von Mises Stress Problem
 ------------------------
 

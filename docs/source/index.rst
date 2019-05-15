@@ -74,6 +74,15 @@ code:
   api/topopt.filters
   api/topopt.guis
 
+.. toctree::
+  :hidden:
+  :maxdepth: 2
+  :caption: API Documentation: Compliant Mechanism Synthesis
+
+  api/topopt.mechanisms.problems
+  api/topopt.mechanisms.solvers
+  api/topopt.mechanisms.boundary_conditions
+
 
 Indices and tables
 ==================

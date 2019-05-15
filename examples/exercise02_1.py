@@ -4,10 +4,9 @@ from __future__ import division
 
 import numpy
 
+from topopt import cmd_helper
 from topopt.boundary_conditions import TopOptBoundaryConditions
 from topopt.utils import xy_to_id
-
-from topopt import cmd_helper
 
 
 class Exercise02_1BoundaryConditions(TopOptBoundaryConditions):
