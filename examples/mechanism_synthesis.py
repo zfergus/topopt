@@ -5,7 +5,9 @@
 from context import topopt  # noqa
 
 from topopt.mechanisms.boundary_conditions import (
-    DisplacementInverterBoundaryConditions)
+    DisplacementInverterBoundaryConditions,
+    CrossSensitivityExampleBoundaryConditions,
+    GripperBoundaryConditions)
 from topopt.mechanisms.problems import MechanismSynthesisProblem
 from topopt.mechanisms.solvers import MechanismSynthesisSolver
 
@@ -20,7 +22,7 @@ def main():
     # Default input parameters
     nelx, nely, volfrac, penal, rmin, ft = cmd_helper.parse_sys_args(
         nelx=100, nely=100, volfrac=0.3, penal=10, rmin=1.4)
-    bc = DisplacementInverterBoundaryConditions(nelx, nely)
+    bc = GripperBoundaryConditions(nelx, nely)
     problem = MechanismSynthesisProblem(nelx, nely, penal, bc)
     title = cmd_helper.title_str(nelx, nely, volfrac, rmin, penal)
     gui = GUI(problem, title)

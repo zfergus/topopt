@@ -1,7 +1,7 @@
 Problems
 ========
 
-.. automodule:: topopt.problems
+.. automodule:: topopt.mechanisms.problems
 
 Base Problem
 ------------

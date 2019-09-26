@@ -65,6 +65,9 @@ class TopOptSolver:
         self.passive = problem.bc.passive_elements
         if self.passive.size > 0:
             self.xPhys[self.passive] = 0
+        self.active = problem.bc.active_elements
+        if self.active.size > 0:
+            self.xPhys[self.active] = 1
 
     def __str__(self):
         """Create a string representation of the solver."""
@@ -117,6 +120,8 @@ class TopOptSolver:
         self.filter.filter_variables(x, self.xPhys)
         if self.passive.size > 0:
             self.xPhys[self.passive] = 0
+        if self.active.size > 0:
+            self.xPhys[self.active] = 1
         return self.xPhys
 
     def objective_function(

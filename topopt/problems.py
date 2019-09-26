@@ -138,8 +138,8 @@ class TopOptProblem(abc.ABC):
         """
         return (self.Emax - self.Emin) * self.penal * x**(self.penal - 1)
 
-    def build_K(self, xPhys: numpy.ndarray,
-                remove_constrained: bool = True) -> numpy.ndarray:
+    def build_K(self, xPhys: numpy.ndarray, remove_constrained: bool = True
+                ) -> scipy.sparse.coo.coo_matrix:
         """
         Build the stiffness matrix for the problem.
 
@@ -228,8 +228,24 @@ class ComplianceProblem(TopOptProblem):
 
     def compute_objective(
             self, xPhys: numpy.ndarray, dobj: numpy.ndarray) -> float:
-        """
+        r"""
         Compute compliance and its gradient.
+
+        The objective is :math:`\mathbf{f}^{T} \mathbf{u}`. The gradient of
+        the objective is
+
+        :math:`\begin{align}
+        \mathbf{f}^T\mathbf{u} &= \mathbf{f}^T\mathbf{u} -
+        \boldsymbol{\lambda}^T(\mathbf{K}\mathbf{u} - \mathbf{f})\\
+        \frac{\partial}{\partial \rho_e}(\mathbf{f}^T\mathbf{u}) &=
+        (\mathbf{K}\boldsymbol{\lambda} - \mathbf{f})^T
+        \frac{\partial \mathbf u}{\partial \rho_e} +
+        \boldsymbol{\lambda}^T\frac{\partial \mathbf K}{\partial \rho_e}
+        \mathbf{u}
+        = \mathbf{u}^T\frac{\partial \mathbf K}{\partial \rho_e}\mathbf{u}
+        \end{align}`
+
+        where :math:`\boldsymbol{\lambda} = \mathbf{u}`.
 
         Parameters:
             xPhys: The element densities.
@@ -266,14 +282,13 @@ class VonMisesStressProblem(TopOptProblem):
         r"""
         Construct a strain-displacement matrix for a 2D regular grid.
 
-        :math:`B = \frac{1}{\text{side}}\begin{bmatrix}
-        \frac{1}{2} & 0 & -\frac{1}{2} & 0 & -\frac{1}{2} & 0 & \frac{1}{2} &
-        0 \\
-        0 & \frac{1}{2} & 0 & \frac{1}{2} & 0 & -\frac{1}{2} & 0 &
-        -\frac{1}{2} \\
-        \frac{1}{2} & \frac{1}{2} & \frac{1}{2} & -\frac{1}{2} & -\frac{1}{2} &
-        -\frac{1}{2} & -\frac{1}{2} & \frac{1}{2}
+        :math:`B = \frac{1}{2s}\begin{bmatrix}
+        1 &  0 & -1 &  0 & -1 &  0 &  1 &  0 \\
+        0 &  1 &  0 &  1 &  0 & -1 &  0 & -1 \\
+        1 &  1 &  1 & -1 & -1 & -1 & -1 &  1
         \end{bmatrix}`
+
+        where :math:`s` is the side length of the square elements.
 
         Todo:
             * Check that this is not -B
