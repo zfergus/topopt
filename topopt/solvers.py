@@ -26,18 +26,18 @@ class TopOptSolver:
 
         Parameters
         ----------
-            problem: :obj:`topopt.problems.TopOptProblem`
-                The topology optimization problem to solve.
-            volfrac: float
-                The maximum fraction of the volume to use.
-            filter: :obj:`topopt.filters.Filter`
-                A filter for the solutions to reduce artefacts.
-            gui: :obj:`topopt.guis.GUI`
-                The graphical user interface to visualize intermediate results.
-            maxeval: int
-                The maximum number of evaluations to perform.
-            ftol: float
-                A floating point tolerance for relative change.
+        problem: :obj:`topopt.problems.TopOptProblem`
+            The topology optimization problem to solve.
+        volfrac: float
+            The maximum fraction of the volume to use.
+        filter: :obj:`topopt.filters.Filter`
+            A filter for the solutions to reduce artefacts.
+        gui: :obj:`topopt.guis.GUI`
+            The graphical user interface to visualize intermediate results.
+        maxeval: int
+            The maximum number of evaluations to perform.
+        ftol: float
+            A floating point tolerance for relative change.
 
         """
         self.problem = problem
@@ -204,7 +204,8 @@ class TopOptSolver:
         Parameters
         ----------
             x: numpy.ndarray
-                The design variables for which to compute the volume constraint.
+                The design variables for which to compute the volume
+                constraint.
             dobj: numpy.ndarray
                 The gradient of the volume constraint to compute.
 

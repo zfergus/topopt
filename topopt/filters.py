@@ -1,18 +1,32 @@
 """Filter the solution to topology optimization."""
 from __future__ import division
 
+# Import standard library
+import abc
+
+# Import modules
 import numpy
 import scipy
 
 
-class Filter(object):
+class Filter(abc.ABC):
     """Filter solutions to topology optimization to avoid checker boarding."""
 
-    def __init__(self, nelx, nely, rmin):
+    def __init__(self, nelx: int, nely: int, rmin: float):
         """
         Create a filter to filter solutions.
 
         Build (and assemble) the index+data vectors for the coo matrix format.
+
+        Parameters
+        ----------
+        nelx:
+            The number of elements in the x direction.
+        nely:
+            The number of elements in the y direction.
+        rmin:
+            The filter radius.
+
         """
         self._repr_string = "{}(nelx={:d}, nely={:d}, rmin={:g})".format(
             self.__class__.__name__, nelx, nely, rmin)
@@ -54,20 +68,20 @@ class Filter(object):
         """Create a formated representation of the filter."""
         return self._repr_string
 
+    @abc.abstractmethod
     def filter_variables(self, x, xPhys):
         """Filter the variable of the solution to produce xPhys."""
-        raise NotImplementedError(
-            "Subclasses must override filter_variables()!")
+        pass
 
+    @abc.abstractmethod
     def filter_objective_sensitivities(self, xPhys, dobj):
         """Filter derivative of the objective."""
-        raise NotImplementedError(
-            "Subclasses must override filter_objective_sensitivities()!")
+        pass
 
+    @abc.abstractmethod
     def filter_volume_sensitivities(self, _xPhys, dv):
         """Filter derivative of the volume."""
-        raise NotImplementedError(
-            "Subclasses must override filter_volume_sensitivities()!")
+        pass
 
 
 class SensitivityBasedFilter(Filter):
@@ -81,7 +95,7 @@ class SensitivityBasedFilter(Filter):
         """Filter derivative of the objective."""
         dobj[:] = (numpy.asarray(
             (self.H * (xPhys * dobj))[numpy.newaxis].T / self.Hs)[:, 0] /
-                numpy.maximum(0.001, xPhys))
+            numpy.maximum(0.001, xPhys))
 
     def filter_volume_sensitivities(self, _xPhys, dv):
         """Filter derivative of the volume."""

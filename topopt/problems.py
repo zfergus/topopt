@@ -7,7 +7,7 @@ import scipy.sparse
 import cvxopt
 import cvxopt.cholmod
 
-from .boundary_conditions import TopOptBoundaryConditions
+from .boundary_conditions import BoundaryConditions
 from .utils import deleterowcol
 
 
@@ -19,12 +19,17 @@ class TopOptProblem(abc.ABC):
         """
         Build the element stiffness matrix.
 
-        Parameters:
-            E: The Young's modulus of the material.
-            nu: The Poisson's ratio of the material.
+        Parameters
+        ----------
+        E:
+            The Young's modulus of the material.
+        nu:
+            The Poisson's ratio of the material.
 
-        Returns:
+        Returns
+        -------
             The element stiffness matrix for the material
+
         """
         k = numpy.array([
             0.5 - nu / 6., 0.125 + nu / 8., -0.25 - nu / 12.,
@@ -42,15 +47,21 @@ class TopOptProblem(abc.ABC):
         return KE
 
     def __init__(self, nelx: int, nely: int, penal: float,
-                 bc: TopOptBoundaryConditions):
+                 bc: BoundaryConditions):
         """
         Create the topology optimization problem.
 
-        Parameters:
-            nelx: Number of elements in the x direction.
-            nely: Number of elements in the x direction.
-            penal: Penalty value used to penalize fractional densities in SIMP.
-            bc: Boundary conditions of the problem.
+        Parameters
+        ----------
+        nelx:
+            The number of elements in the x direction.
+        nely:
+            The number of elements in the x direction.
+        penal:
+            The penalty value used to penalize fractional densities in SIMP.
+        bc:
+            The boundary conditions of the problem.
+
         """
         # Problem size
         self.nelx = nelx
@@ -118,11 +129,15 @@ class TopOptProblem(abc.ABC):
         """
         Compute the penalized densties.
 
-        Parameters:
-            x: The density variables to penalize.
+        Parameters
+        ----------
+        x:
+            The density variables to penalize.
 
-        Returns:
+        Returns
+        -------
             The penalized densities used for SIMP.
+
         """
         return self.Emin + (self.Emax - self.Emin) * x**self.penal
 
@@ -130,11 +145,15 @@ class TopOptProblem(abc.ABC):
         """
         Compute the gradient of penalized densties.
 
-        Parameters:
-            x: The density variables to penalize.
+        Parameters
+        ----------
+        x:
+            The density variables to penalize.
 
-        Returns:
+        Returns
+        -------
             The gradient of penalized densties.
+
         """
         return (self.Emax - self.Emin) * self.penal * x**(self.penal - 1)
 
@@ -143,12 +162,17 @@ class TopOptProblem(abc.ABC):
         """
         Build the stiffness matrix for the problem.
 
-        Parameters:
-            xPhys: The element densisities used to build the stiffness matrix.
-            remove_constrained: Should the constrained nodes be removed?
+        Parameters
+        ----------
+        xPhys:
+            The element densisities used to build the stiffness matrix.
+        remove_constrained:
+            Should the constrained nodes be removed?
 
-        Returns:
+        Returns
+        -------
             The stiffness matrix for the mesh.
+
         """
         sK = ((self.KE.flatten()[numpy.newaxis]).T *
               self.penalized_densities(xPhys)).flatten(order='F')
@@ -167,12 +191,16 @@ class TopOptProblem(abc.ABC):
         element analysis (solving :math:`Ku = f` where :math:`K` is the
         stiffness matrix and :math:`f` is the force vector).
 
-        Parameters:
-            xPhys: The element densisities used to build the stiffness matrix.
+        Parameters
+        ----------
+        xPhys:
+            The element densisities used to build the stiffness matrix.
 
-        Returns:
+        Returns
+        -------
             The distplacements solve using linear elastic finite element
             analysis.
+
         """
         # Setup and solve FE problem
         K = self.build_K(xPhys)
@@ -189,8 +217,11 @@ class TopOptProblem(abc.ABC):
         """
         Update the displacements of the problem.
 
-        Parameters:
-            xPhys: The element densisities used to compute the displacements.
+        Parameters
+        ----------
+        xPhys:
+            The element densisities used to compute the displacements.
+
         """
         self.u[:, :] = self.compute_displacements(xPhys)
 
@@ -200,12 +231,17 @@ class TopOptProblem(abc.ABC):
         """
         Compute objective and its gradient.
 
-        Parameters:
-            xPhys: The design variables.
-            dobj: The gradient of the objective.
+        Parameters
+        ----------
+        xPhys:
+            The design variables.
+        dobj:
+            The gradient of the objective.
 
-        Returns:
+        Returns
+        -------
             The objective value.
+
         """
         pass
 
@@ -247,12 +283,17 @@ class ComplianceProblem(TopOptProblem):
 
         where :math:`\boldsymbol{\lambda} = \mathbf{u}`.
 
-        Parameters:
-            xPhys: The element densities.
-            dobj: The gradient of compliance.
+        Parameters
+        ----------
+        xPhys:
+            The element densities.
+        dobj:
+            The gradient of compliance.
 
-        Returns:
+        Returns
+        -------
             The compliance value.
+
         """
         obj = 0.0
         dobj[:] = 0.0
@@ -293,11 +334,15 @@ class VonMisesStressProblem(TopOptProblem):
         Todo:
             * Check that this is not -B
 
-        Parameters:
-            side: The side length of the square elements.
+        Parameters
+        ----------
+        side:
+            The side length of the square elements.
 
-        Returns:
+        Returns
+        -------
             The strain-displacement matrix for a 2D regular grid.
+
         """
         n = -0.5 / side
         p = 0.5 / side
@@ -316,11 +361,15 @@ class VonMisesStressProblem(TopOptProblem):
         0 & 0 & \frac{1 - \nu}{2}
         \end{bmatrix}`
 
-        Parameters:
-            nu : The Poisson's ratio of the material.
+        Parameters
+        ----------
+        nu:
+            The Poisson's ratio of the material.
 
-        Returns:
+        Returns
+        -------
             The constitutive matrix for a 2D regular grid.
+
         """
         return numpy.array([[1, nu, 0],
                             [nu, 1, 0],

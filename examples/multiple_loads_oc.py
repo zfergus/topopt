@@ -15,6 +15,8 @@ import matplotlib.pyplot as plt
 import cvxopt
 import cvxopt.cholmod
 
+import context  # noqa
+
 from topopt.utils import xy_to_id, id_to_xy
 
 # Python 2/3 compatibility
@@ -25,10 +27,10 @@ except NameError:
 
 
 # MAIN DRIVER
-def main(nelx, nely, volfrac, penal, rmin, ft):
+def main(nelx, nely, volfrac, penalty, rmin, ft):
     print("Minimum compliance problem with OC")
     print("ndes: %d x %d" % (nelx, nely))
-    print("volfrac: %s, rmin: %s, penal: %s" % (volfrac, rmin, penal))
+    print("volfrac: %s, rmin: %s, penalty: %s" % (volfrac, rmin, penalty))
     print("Filter method: " + ["Sensitivity based", "Density based"][ft])
     # Max and min stiffness
     Emin = 1e-9
@@ -39,7 +41,7 @@ def main(nelx, nely, volfrac, penal, rmin, ft):
     x = volfrac * np.ones(nely * nelx)
     xold = x.copy()
     xPhys = x.copy()
-    g = 0 # must be initialized to use the NGuyen/Paulino OC approach
+    g = 0  # must be initialized to use the NGuyen/Paulino OC approach
     dc = np.zeros((nely, nelx))
     # FE: Build the index vectors for the for coo matrix format.
     KE = lk()
@@ -50,7 +52,7 @@ def main(nelx, nely, volfrac, penal, rmin, ft):
             n1 = (nely + 1) * elx + ely
             n2 = (nely + 1) * (elx + 1) + ely
             edofMat[el, :] = np.array([2 * n1 + 2,  2 * n1 + 3,  2 * n2 + 2,
-                2 * n2 + 3, 2 * n2,  2 * n2 + 1,  2 * n1,  2 * n1 + 1])
+                                       2 * n2 + 3, 2 * n2,  2 * n2 + 1,  2 * n1,  2 * n1 + 1])
     # Construct the index pointers for the coo format
     iK = np.kron(edofMat, np.ones((8, 1))).flatten()
     jK = np.kron(edofMat, np.ones((1, 8))).flatten()
@@ -78,14 +80,14 @@ def main(nelx, nely, volfrac, penal, rmin, ft):
                     sH[cc] = np.maximum(0.0, fac)
                     cc = cc + 1
     # Finalize assembly and convert to csc format
-    H = coo_matrix((sH, (iH, jH)), shape = (nelx * nely, nelx * nely)).tocsc()
+    H = coo_matrix((sH, (iH, jH)), shape=(nelx * nely, nelx * nely)).tocsc()
     Hs = H.sum(1)
     # BC's and support
     dofs = np.arange(2 * (nelx + 1) * (nely + 1))
     bottom_left = 2 * xy_to_id(0, nely, nelx, nely)
     bottom_right = 2 * xy_to_id(nelx, nely, nelx, nely)
     fixed = np.array([bottom_left, bottom_left + 1,
-        bottom_right, bottom_right + 1])
+                      bottom_right, bottom_right + 1])
     free = np.setdiff1d(dofs, fixed)
     # Solution and RHS vectors
     f = np.zeros((ndof, 2))
@@ -99,24 +101,24 @@ def main(nelx, nely, volfrac, penal, rmin, ft):
     # f[1, 0] = -1
     # f[2 * (nelx - 1) * (nely + 1), 1] =  -1
     # Initialize plot and plot the initial design
-    plt.ion() # Ensure that redrawing is possible
+    plt.ion()  # Ensure that redrawing is possible
     fig, ax = plt.subplots()
-    im = ax.imshow(-xPhys.reshape((nelx, nely)).T, cmap = 'gray',
-        interpolation = 'none', norm = colors.Normalize(vmin = -1, vmax = 0))
+    im = ax.imshow(-xPhys.reshape((nelx, nely)).T, cmap='gray',
+                   interpolation='none', norm=colors.Normalize(vmin=-1, vmax=0))
     plt.xlabel(
-        "ndes: {:d} x {:d}\nvolfrac: {:g}, rmin: {:g}, penal: {:g}".format(
-            nelx, nely, volfrac, rmin, penal))
+        "ndes: {:d} x {:d}\nvolfrac: {:g}, rmin: {:g}, penalty: {:g}".format(
+            nelx, nely, volfrac, rmin, penalty))
     plot_force_arrows(nelx, nely, f, ax)
     fig.tight_layout()
     fig.show()
     # Set loop counter and gradient vectors
     dv = np.ones(nely * nelx)
     ce = np.ones(nely * nelx)
-    for loop in range(2000): # while change > 0.01 and loop < 100:
+    for loop in range(2000):  # while change > 0.01 and loop < 100:
         # Setup and solve FE problem
         sK = ((KE.flatten()[np.newaxis]).T *
-            (Emin + (xPhys)**penal * (Emax - Emin))).flatten(order = 'F')
-        K = coo_matrix((sK, (iK, jK)), shape = (ndof, ndof)).tocsc()
+              (Emin + (xPhys)**penalty * (Emax - Emin))).flatten(order='F')
+        K = coo_matrix((sK, (iK, jK)), shape=(ndof, ndof)).tocsc()
         # Remove constrained dofs from matrix
         K = deleterowcol(K, fixed, fixed).tocoo()
         # Solve system
@@ -132,13 +134,13 @@ def main(nelx, nely, volfrac, penal, rmin, ft):
         for i in range(f.shape[1]):
             ui = u[:, i][edofMat]
             ce[:] = (ui.dot(KE) * ui).sum(1)
-            obj += ((Emin + xPhys**penal * (Emax - Emin)) * ce).sum()
-            dc[:] += (-penal * xPhys**(penal - 1) * (Emax - Emin)) * ce
+            obj += ((Emin + xPhys**penalty * (Emax - Emin)) * ce).sum()
+            dc[:] += (-penalty * xPhys**(penalty - 1) * (Emax - Emin)) * ce
         dv[:] = np.ones(nely * nelx)
         # Sensitivity filtering:
         if ft == 0:
             dc[:] = (np.asarray((H * (x * dc))[np.newaxis].T / Hs)[:, 0] /
-                np.maximum(0.001, x))
+                     np.maximum(0.001, x))
         elif ft == 1:
             dc[:] = np.asarray(H * (dc[np.newaxis].T / Hs))[:, 0]
             dv[:] = np.asarray(H * (dv[np.newaxis].T / Hs))[:, 0]
@@ -152,7 +154,7 @@ def main(nelx, nely, volfrac, penal, rmin, ft):
             xPhys[:] = np.asarray(H * x[np.newaxis].T / Hs)[:, 0]
         # Compute the change by the inf. norm
         change = (np.linalg.norm(x.reshape(nelx * nely, 1) -
-            xold.reshape(nelx * nely, 1), np.inf))
+                                 xold.reshape(nelx * nely, 1), np.inf))
         # Plot to screen
         im.set_array(-xPhys.reshape((nelx, nely)).T)
         fig.canvas.draw()
@@ -160,7 +162,7 @@ def main(nelx, nely, volfrac, penal, rmin, ft):
         plt.pause(0.005)
         # Write iteration history to screen
         print("it.: %3d, obj.: %9.3f, Vol.: %.2f, ch.: %.3f" % (loop, obj,
-            (g + volfrac * nelx * nely) / (nelx * nely), change))
+                                                                (g + volfrac * nelx * nely) / (nelx * nely), change))
         if change < 0.01:
             break
     # Make sure the plot stays and that the shell remains
@@ -173,8 +175,8 @@ def lk():
     E = 1
     nu = 0.3
     k = np.array([1 / 2. - nu / 6., 1 / 8 + nu / 8, -1 / 4 - nu / 12,
-        -1 / 8 + 3 * nu / 8, -1 / 4 + nu / 12, -1 / 8 - nu / 8, nu / 6,
-        1 / 8 - 3 * nu / 8])
+                  -1 / 8 + 3 * nu / 8, -1 / 4 + nu / 12, -1 / 8 - nu / 8, nu / 6,
+                  1 / 8 - 3 * nu / 8])
     KE = E / (1 - nu**2) * np.array([
         [k[0], k[1], k[2], k[3], k[4], k[5], k[6], k[7]],
         [k[1], k[0], k[7], k[6], k[5], k[4], k[3], k[2]],
@@ -196,8 +198,8 @@ def oc(nelx, nely, x, volfrac, dc, dv, g):
     xnew = np.zeros(nelx * nely)
     while (l2 - l1) / (l1 + l2) > 1e-3:
         lmid = 0.5 * (l2 + l1)
-        xnew[:] =  np.maximum(0.0, np.maximum(x - move, np.minimum(1.0,
-            np.minimum(x + move, x * np.sqrt(-dc / dv / lmid)))))
+        xnew[:] = np.maximum(0.0, np.maximum(x - move, np.minimum(1.0,
+                                                                  np.minimum(x + move, x * np.sqrt(-dc / dv / lmid)))))
         gt = g + np.sum((dv * (xnew - x)))
         if gt > 0:
             l1 = lmid
@@ -219,7 +221,7 @@ def deleterowcol(A, delrow, delcol):
 def plot_force_arrows(nelx, nely, f, ax):
     """Add arrows to the plot for each force."""
     arrowprops = {"arrowstyle": "->", "connectionstyle": "arc3",
-        "lw": "2", "color": 0}
+                  "lw": "2", "color": 0}
     cmap = plt.cm.get_cmap("hsv", f.shape[1] + 1)
     for load_i in range(f.shape[1]):
         nz = np.nonzero(f[:, load_i])
@@ -231,15 +233,16 @@ def plot_force_arrows(nelx, nely, f, ax):
             z = int(nz[0][i] % 2)
             mag = -50 * f[nz[0][i], load_i]
             ax.annotate("", xy=(x, y), xycoords="data",
-                xytext = (0 if z else mag, mag if z else 0),
-                textcoords="offset points", arrowprops=arrowprops)
+                        xytext=(0 if z else mag, mag if z else 0),
+                        textcoords="offset points", arrowprops=arrowprops)
+
 
 # The real main driver
-if __name__ ==  "__main__":
+if __name__ == "__main__":
     import sys
     # Default input parameters
-    nelx, nely, volfrac, penal, rmin, ft = (sys.argv[1:] +
-        [120, 60, 0.2, 3.0, 1.5, 1][len(sys.argv) - 1:])[:6]
+    nelx, nely, volfrac, penalty, rmin, ft = (sys.argv[1:] +
+                                            [120, 60, 0.2, 3.0, 1.5, 1][len(sys.argv) - 1:])[:6]
     nelx, nely, ft = map(int, [nelx, nely, ft])
-    volfrac, penal, rmin = map(float, [volfrac, penal, rmin])
-    main(nelx, nely, volfrac, penal, rmin, ft)
+    volfrac, penalty, rmin = map(float, [volfrac, penalty, rmin])
+    main(nelx, nely, volfrac, penalty, rmin, ft)

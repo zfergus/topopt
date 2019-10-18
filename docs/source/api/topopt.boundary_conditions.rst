@@ -6,7 +6,7 @@ Boundary Conditions
 Base Boundary Conditions
 ------------------------
 
-.. autoclass:: topopt.boundary_conditions.TopOptBoundaryConditions
+.. autoclass:: topopt.boundary_conditions.BoundaryConditions
     :members:
     :undoc-members:
     :special-members: __init__

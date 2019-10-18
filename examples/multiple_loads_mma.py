@@ -1,15 +1,22 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""Multiple loads."""
 from __future__ import division
 
 import numpy
 
-from topopt import cmd_helper
-from topopt.boundary_conditions import TopOptBoundaryConditions
+import context  # noqa
+
+from topopt.boundary_conditions import BoundaryConditions
+from topopt.problems import ComplianceProblem
 from topopt.utils import xy_to_id
 
+from topopt import cli
 
-class Exercise02_1BoundaryConditions(TopOptBoundaryConditions):
+
+class MultipleLoadsBoundaryConditions(BoundaryConditions):
+    """Multiple loads applied to the top boundary."""
+
     @property
     def fixed_nodes(self):
         """Return a list of fixed nodes for the problem."""
@@ -22,19 +29,23 @@ class Exercise02_1BoundaryConditions(TopOptBoundaryConditions):
     @property
     def forces(self):
         """Return the force vector for the problem."""
-        f = numpy.zeros((2 * (self.nelx + 1) * (self.nely + 1), 1))
+        f = numpy.zeros((2 * (self.nelx + 1) * (self.nely + 1), 2))
         id1 = 2 * xy_to_id(7 * self.nelx // 20, 0, self.nelx, self.nely) + 1
         id2 = 2 * xy_to_id(13 * self.nelx // 20, 0, self.nelx, self.nely) + 1
-        f[[id1, id2], 0] = -1
+        f[id1, 0] = -1
+        f[id2, 1] = -1
         return f
 
 
 def main():
+    """Multiple loads."""
     # Default input parameters
-    nelx, nely, volfrac, penal, rmin, ft = cmd_helper.parse_sys_args(
+    nelx, nely, volfrac, penalty, rmin, ft = cli.parse_args(
         nelx=120, volfrac=0.2, rmin=1.5)
-    cmd_helper.main(nelx, nely, volfrac, penal, rmin, ft,
-                    bc=Exercise02_1BoundaryConditions(nelx, nely))
+    bc = MultipleLoadsBoundaryConditions(nelx, nely)
+    problem = ComplianceProblem(nelx, nely, penalty, bc)
+    cli.main(nelx, nely, volfrac, penalty, rmin, ft, bc=bc,
+             problem=problem)
 
 
 if __name__ == "__main__":

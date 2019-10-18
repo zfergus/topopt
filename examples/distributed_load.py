@@ -1,16 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""Distributed load."""
 from __future__ import division
 
 import numpy
 
-from topopt.boundary_conditions import TopOptBoundaryConditions
+import context  # noqa
+
+from topopt.boundary_conditions import BoundaryConditions
 from topopt.utils import xy_to_id
 
-from topopt import cmd_helper
+from topopt import cli
 
 
-class Exercise02_2BoundaryConditions(TopOptBoundaryConditions):
+class DistributedLoadBoundaryConditions(BoundaryConditions):
+    """Distributed load along the top boundary."""
+
     @property
     def fixed_nodes(self):
         """Return a list of fixed nodes for the problem."""
@@ -44,11 +49,12 @@ class Exercise02_2BoundaryConditions(TopOptBoundaryConditions):
 
 
 def main():
+    """Distributed load."""
     # Default input parameters
-    nelx, nely, volfrac, penal, rmin, ft = cmd_helper.parse_sys_args(
+    nelx, nely, volfrac, penalty, rmin, ft = cli.parse_args(
         nelx=120, volfrac=0.2, rmin=1.2)
-    cmd_helper.main(nelx, nely, volfrac, penal, rmin, ft,
-                    bc=Exercise02_2BoundaryConditions(nelx, nely))
+    cli.main(nelx, nely, volfrac, penalty, rmin, ft,
+             bc=DistributedLoadBoundaryConditions(nelx, nely))
 
 
 if __name__ == "__main__":

@@ -9,11 +9,11 @@ from topopt.solvers import TopOptSolver
 import topopt.von_mises_stress
 import topopt.guis
 from topopt.problems import VonMisesStressProblem
-from topopt.boundary_conditions import TopOptBoundaryConditions
+from topopt.boundary_conditions import BoundaryConditions
 from topopt.utils import xy_to_id
 
 
-class HoleBoundaryConditions(TopOptBoundaryConditions):
+class HoleBoundaryConditions(BoundaryConditions):
     """
     Boundary conditions for the hole tool.
 

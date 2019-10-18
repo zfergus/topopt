@@ -1,16 +1,17 @@
 """Boundary conditions for mechanism synthesis (forces and fixed nodes)."""
 
+# Import standard library
 import functools
 
 # Import modules
 import numpy
 
 # Import TopOpt modules
-from ..boundary_conditions import TopOptBoundaryConditions
+from ..boundary_conditions import BoundaryConditions
 from ..utils import xy_to_id
 
 
-class MechanismSynthesisBoundaryConditions(TopOptBoundaryConditions):
+class MechanismSynthesisBoundaryConditions(BoundaryConditions):
     """Boundary conditions for compliant mechanism synthesis."""
 
     @property

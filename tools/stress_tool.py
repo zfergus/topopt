@@ -6,18 +6,15 @@ import numpy
 from matplotlib import colors
 import matplotlib.pyplot as plt
 
+import context  # noqa
+
 from topopt.boundary_conditions import BoundaryConditions
 from topopt.von_mises_stress import VonMisesStressCalculator
 from topopt.utils import xy_to_id, id_to_xy
 
-try:
-    input = raw_input
-except Exception:
-    pass
-
 
 def set_displacements(u, func, nelx, nely, min_corner=(-1, -1),
-        max_corner=(1, 1)):
+                      max_corner=(1, 1)):
     for i in range(nelx + 1):
         for j in range(nely + 1):
             id = xy_to_id(i, j, nelx, nely)
@@ -30,9 +27,9 @@ def set_displacements(u, func, nelx, nely, min_corner=(-1, -1),
 
 def set_labels(values):
     x_positions = numpy.linspace(start=0, stop=nelx, num=nelx,
-        endpoint=False)
+                                 endpoint=False)
     y_positions = numpy.linspace(start=0, stop=nelx, num=nelx,
-        endpoint=False)
+                                 endpoint=False)
 
     for text in ax.texts:
         text.set_visible(False)
@@ -43,7 +40,7 @@ def set_labels(values):
             text_x = x + 0.5
             text_y = y + 0.5
             ax.text(text_x, text_y, label, color='red', ha='center',
-                va='center')
+                    va='center')
 
 
 def onpress(event):
@@ -91,8 +88,8 @@ if __name__ == "__main__":
     plt.ion()  # Ensure that redrawing is possible
     fig, ax = plt.subplots()
     im = ax.imshow(numpy.zeros((nelx, nely)).T, cmap="viridis",
-        interpolation='none', norm=colors.Normalize(vmin=0, vmax=1),
-        origin="lower", extent=[0, nelx, 0, nely])
+                   interpolation='none', norm=colors.Normalize(vmin=0, vmax=1),
+                   origin="lower", extent=[0, nelx, 0, nely])
     ax.grid(color='r', linestyle='-', linewidth=(4 / nelx))
     plt.xticks(numpy.arange(nelx + 1))
     plt.xlim([0, nelx])
@@ -104,7 +101,7 @@ if __name__ == "__main__":
 
     from topopt.problems import ComplianceProblem
     problem = ComplianceProblem(nelx, nely, penal,
-        BoundaryConditions(nelx, nely))
+                                BoundaryConditions(nelx, nely))
     vms = VonMisesStressCalculator(problem)
     stress = vms.calculate_stress(xPhys, u, nu)
     im.set_array(stress.reshape((nelx, nely)).T)

@@ -133,3 +133,9 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+###############################################################################
+patches
+examples/Exercises2015.pdf
+examples/zachary_ferguson_report.md
+examples/zachary_ferguson_report.pdf

@@ -1,8 +1,14 @@
 .. TopOpt documentation master file
 
-TopOpt --- Topology Optimization Library for Python
-===================================================
+TopOpt --- Topology Optimization in Python
+==========================================
 
+.. image:: https://img.shields.io/pypi/v/topopt.svg?color=brightgreen&logo=python&logoColor=white
+   :target: https://pypi.org/project/topopt/
+   :alt: PyPi
+.. image:: https://travis-ci.com/zfergus/topopt.svg?branch=master
+   :target: https://travis-ci.com/zfergus/seam-erasure
+   :alt: Build
 .. image:: https://img.shields.io/github/license/zfergus/topopt.svg?color=blue
    :target: https://opensource.org/licenses/MIT
    :alt: License: MIT
@@ -15,17 +21,18 @@ TopOpt --- Topology Optimization Library for Python
     change to better improve usability.
 
 `Topology optimization
-<https://en.wikipedia.org/wiki/Topology_optimization>`_ is a structure
+<https://en.wikipedia.org/wiki/Topology_optimization>`_ is a form of structure
 optimization where the design variable is the topology of the structure.
 Topological changes are achieved by optimizing the material distribution within
 a given design space.
 
-With TopOpt we can optimize the classic Messerschmitt–Bölkow–Blohm (MBB) beam
-in a few lines of code:
+TopOpt is a python library for topology optimization. TopOpt contains common
+design problems (e.g. minimum compliance) solved using advanced methods
+(e.g. Method of Moving Asymptotes (MMA)). Using TopOpt we can optimize the
+classic Messerschmitt–Bölkow–Blohm (MBB) beam in a few lines of code:
 
 .. code-block:: python
 
-    import topopt
     from topopt.boundary_conditions import MBBBeamBoundaryConditions
     from topopt.problems import ComplianceProblem
     from topopt.solvers import TopOptSolver
@@ -82,13 +89,47 @@ in a few lines of code:
     api/topopt.solvers
     api/topopt.boundary_conditions
     api/topopt.filters
-    api/topopt.guis
     api/topopt.mechanisms
+    api/topopt.guis
+    api/topopt.cli
+
+Development Status
+------------------
+
+TopOpt is in early stages of development and only features a limited set of
+finite element mesh options, optimization problems, and solvers. The following
+is a list of current and future features of TopOpt:
+
+Meshes
+~~~~~~
+- ✅ 2D regular grid
+- ⬜ 2D general mesh
+    + ⬜ triangle mesh
+    + ⬜ quadrilateral mesh
+- ⬜ 3D regular grid
+- ⬜ 3D general mesh
+    + ⬜ tetrahedron mesh
+    + ⬜ hexahedron mesh
+
+Problems
+~~~~~~~~
+- ⬜ compliance
+    - ✅ linear elasticity
+    - ⬜ non-linear elasticity
+- ⬜ stress
+- ⬜ thermal conductivity
+- ⬜ fluid flow
+
+Solvers
+~~~~~~~
+- ⬜ `optimality criterion <https://en.wikipedia.org/wiki/Optimality_criterion>`_
+- ✅ method of moving asymptotes (MMA)
+- ⬜  `genetic algorithms <https://en.wikipedia.org/wiki/Genetic_algorithm>`_
 
 
 Indices and tables
-==================
+------------------
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+- :ref:`genindex`
+- :ref:`modindex`
+- :ref:`search`
