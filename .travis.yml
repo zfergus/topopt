@@ -5,10 +5,17 @@ matrix:
       dist: bionic
       sudo: required
       language: python
-      python: '3.7'
+      python:
+        - "2.7"
+        - "3.6"
+        - "3.7"
+        - "3.8"
     - os: osx
       language: python
-      python: '3.7'
+      python:
+        - "3.6"
+        - "3.7"
+        - "3.8"
 # command to install dependencies
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -y libopenblas-dev; fi
@@ -17,4 +24,4 @@ install:
   - pip install -r requirements.txt
 # command to run tests
 script:
-  - echo "done" | python main.py examples/mechanism_synthesis.py
+  - echo "done" | python examples/mechanism_synthesis.py
