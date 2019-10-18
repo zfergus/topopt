@@ -7,7 +7,7 @@ TopOpt --- Topology Optimization in Python
    :target: https://pypi.org/project/topopt/
    :alt: PyPi
 .. image:: https://travis-ci.com/zfergus/topopt.svg?branch=master
-   :target: https://travis-ci.com/zfergus/seam-erasure
+   :target: https://travis-ci.com/zfergus/topopt
    :alt: Build
 .. image:: https://img.shields.io/github/license/zfergus/topopt.svg?color=blue
    :target: https://opensource.org/licenses/MIT
