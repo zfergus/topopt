@@ -12,7 +12,140 @@ from .utils import deleterowcol
 
 
 class Problem(abc.ABC):
-    """Abstract topology optimization problem."""
+    """
+    Abstract topology optimization problem.
+
+    Attributes
+    ----------
+    bc: BoundaryConditions
+        The boundary conditions for the problem.
+    penalty: float
+        The SIMP penalty value.
+    f: numpy.ndarray
+        The right-hand side of the FEM equation (forces).
+    u: numpy.ndarray
+        The variables of the FEM equation.
+    obje: numpy.ndarray
+        The per element objective values.
+
+    """
+
+    def __init__(self, bc: BoundaryConditions, penalty: float):
+        """
+        Create the topology optimization problem.
+
+        Parameters
+        ----------
+        bc:
+            The boundary conditions of the problem.
+        penalty:
+            The penalty value used to penalize fractional densities in SIMP.
+
+        """
+        # Problem size
+        self.nelx = bc.nelx
+        self.nely = bc.nely
+        self.nel = self.nelx * self.nely
+
+        # Count degrees of fredom
+        self.ndof = 2 * (self.nelx + 1) * (self.nely + 1)
+
+        # SIMP penalty
+        self.penalty = penalty
+
+        # BC's and support (half MBB-beam)
+        self.bc = bc
+        dofs = numpy.arange(self.ndof)
+        self.fixed = bc.fixed_nodes
+        self.free = numpy.setdiff1d(dofs, self.fixed)
+
+        # RHS and Solution vectors
+        self.f = bc.forces
+        self.u = numpy.zeros(self.f.shape)
+
+        # Per element objective
+        self.obje = numpy.zeros(self.nely * self.nelx)
+
+    def __str__(self) -> str:
+        """Create a string representation of the problem."""
+        return self.__class__.__name__
+
+    def __format__(self, format_spec) -> str:
+        """Create a formated representation of the problem."""
+        return str(self)
+
+    def __repr__(self) -> str:
+        """Create a representation of the problem."""
+        return "{}(bc={!r}, penalty={:g})".format(
+            self.__class__.__name__, self.penalty, self.bc)
+
+    def penalize_densities(self, x: numpy.ndarray, drho: numpy.ndarray = None
+                           ) -> numpy.ndarray:
+        """
+        Compute the penalized densties (and optionally its derivative).
+
+        Parameters
+        ----------
+        x:
+            The density variables to penalize.
+        drho:
+            The derivative of the penealized densities to compute. Only set if
+            drho is not None.
+
+        Returns
+        -------
+            The penalized densities used for SIMP.
+
+        """
+        rho = x**self.penalty
+        if drho is not None:
+            assert(drho.shape == x.shape)
+            drho[:] = rho
+            valid = x != 0  # valid values for division
+            drho[valid] *= self.penalty / x[valid]
+        return rho
+
+    @abc.abstractmethod
+    def compute_objective(
+            self, xPhys: numpy.ndarray, dobj: numpy.ndarray) -> float:
+        """
+        Compute objective and its gradient.
+
+        Parameters
+        ----------
+        xPhys:
+            The design variables.
+        dobj:
+            The gradient of the objective to compute.
+
+        Returns
+        -------
+            The objective value.
+
+        """
+        pass
+
+
+class ElasticityProblem(Problem):
+    """
+    Abstract elasticity topology optimization problem.
+
+    Attributes
+    ----------
+    Emin: float
+        The Young's modulus use for the void regions.
+    Emax: float
+        The Young's modulus use for the solid regions.
+    nu: float
+        Poisson's ratio of the material.
+    f: numpy.ndarray
+        The right-hand side of the FEM equation (forces).
+    u: numpy.ndarray
+        The variables of the FEM equation (displacments).
+    nloads: int
+        The number of loads applied to the material.
+
+    """
 
     @staticmethod
     def lk(E: float = 1.0, nu: float = 0.3) -> numpy.ndarray:
@@ -46,37 +179,22 @@ class Problem(abc.ABC):
             [k[7], k[2], k[1], k[4], k[3], k[6], k[5], k[0]]])
         return KE
 
-    def __init__(self, nelx: int, nely: int, penal: float,
-                 bc: BoundaryConditions):
+    def __init__(self, bc: BoundaryConditions, penalty: float):
         """
         Create the topology optimization problem.
 
         Parameters
         ----------
-        nelx:
-            The number of elements in the x direction.
-        nely:
-            The number of elements in the x direction.
-        penal:
-            The penalty value used to penalize fractional densities in SIMP.
         bc:
             The boundary conditions of the problem.
+        penalty:
+            The penalty value used to penalize fractional densities in SIMP.
 
         """
-        # Problem size
-        self.nelx = nelx
-        self.nely = nely
-        self.nel = nelx * nely
-
-        # Count degrees of fredom
-        self.ndof = 2 * (nelx + 1) * (nely + 1)
-
+        super().__init__(bc, penalty)
         # Max and min stiffness
         self.Emin = 1e-9
         self.Emax = 1.0
-
-        # SIMP penalty
-        self.penal = penal
 
         # FE: Build the index vectors for the for coo matrix format.
         self.nu = 0.3
@@ -88,26 +206,8 @@ class Problem(abc.ABC):
         self.fixed = bc.fixed_nodes
         self.free = numpy.setdiff1d(dofs, self.fixed)
 
-        # RHS and Solution vectors
-        self.f = bc.forces
-        self.u = numpy.zeros(self.f.shape)
+        # Number of loads
         self.nloads = self.f.shape[1]
-
-        # Per element objective
-        self.obje = numpy.zeros(nely * nelx)
-
-    def __str__(self) -> str:
-        """Create a string representation of the problem."""
-        return self.__class__.__name__
-
-    def __format__(self, format_spec) -> str:
-        """Create a formated representation of the problem."""
-        return str(self)
-
-    def __repr__(self) -> str:
-        """Create a representation of the problem."""
-        return "{}(nelx={:d}, nely={:d}, penal={:g}, bc={!r})".format(
-            self.__class__.__name__, self.nelx, self.nely, self.penal, self.bc)
 
     def build_indices(self) -> None:
         """Build the index vectors for the finite element coo matrix format."""
@@ -125,37 +225,32 @@ class Problem(abc.ABC):
         self.iK = numpy.kron(self.edofMat, numpy.ones((8, 1))).flatten()
         self.jK = numpy.kron(self.edofMat, numpy.ones((1, 8))).flatten()
 
-    def penalized_densities(self, x: numpy.ndarray) -> numpy.ndarray:
+    def compute_young_moduli(self, x: numpy.ndarray, dE: numpy.ndarray = None
+                             ) -> numpy.ndarray:
         """
-        Compute the penalized densties.
+        Compute the Young's modulus of each element from the densties.
+
+        Optionally compute the derivative of the Young's modulus.
 
         Parameters
         ----------
         x:
-            The density variables to penalize.
+            The density variable of each element.
+        dE:
+            The derivative of Young's moduli to compute. Only set if dE is not
+            None.
 
         Returns
         -------
-            The penalized densities used for SIMP.
+            The elements' Young's modulus.
 
         """
-        return self.Emin + (self.Emax - self.Emin) * x**self.penal
-
-    def diff_penalized_densities(self, x: numpy.ndarray) -> numpy.ndarray:
-        """
-        Compute the gradient of penalized densties.
-
-        Parameters
-        ----------
-        x:
-            The density variables to penalize.
-
-        Returns
-        -------
-            The gradient of penalized densties.
-
-        """
-        return (self.Emax - self.Emin) * self.penal * x**(self.penal - 1)
+        drho = None if dE is None else numpy.empty(x.shape)
+        rho = self.penalize_densities(x, drho)
+        if drho is not None and dE is not None:
+            assert(dE.shape == x.shape)
+            dE[:] = (self.Emax - self.Emin) * drho
+        return (self.Emax - self.Emin) * rho + self.Emin
 
     def build_K(self, xPhys: numpy.ndarray, remove_constrained: bool = True
                 ) -> scipy.sparse.coo.coo_matrix:
@@ -175,7 +270,7 @@ class Problem(abc.ABC):
 
         """
         sK = ((self.KE.flatten()[numpy.newaxis]).T *
-              self.penalized_densities(xPhys)).flatten(order='F')
+              self.compute_young_moduli(xPhys)).flatten(order='F')
         K = scipy.sparse.coo_matrix(
             (sK, (self.iK, self.jK)), shape=(self.ndof, self.ndof))
         if remove_constrained:
@@ -225,28 +320,8 @@ class Problem(abc.ABC):
         """
         self.u[:, :] = self.compute_displacements(xPhys)
 
-    @abc.abstractmethod
-    def compute_objective(
-            self, xPhys: numpy.ndarray, dobj: numpy.ndarray) -> float:
-        """
-        Compute objective and its gradient.
 
-        Parameters
-        ----------
-        xPhys:
-            The design variables.
-        dobj:
-            The gradient of the objective.
-
-        Returns
-        -------
-            The objective value.
-
-        """
-        pass
-
-
-class ComplianceProblem(Problem):
+class ComplianceProblem(ElasticityProblem):
     r"""
     Topology optimization problem to minimize compliance.
 
@@ -295,20 +370,23 @@ class ComplianceProblem(Problem):
             The compliance value.
 
         """
+        # Setup and solve FE problem
+        self.update_displacements(xPhys)
+
         obj = 0.0
         dobj[:] = 0.0
-        rho = self.penalized_densities(xPhys)
-        drho = self.diff_penalized_densities(xPhys)
+        dE = numpy.empty(xPhys.shape)
+        E = self.compute_young_moduli(xPhys, dE)
         for i in range(self.nloads):
             ui = self.u[:, i][self.edofMat].reshape(-1, 8)
             self.obje[:] = (ui.dot(self.KE) * ui).sum(1)
-            obj += (rho * self.obje).sum()
-            dobj[:] += -drho * self.obje
+            obj += (E * self.obje).sum()
+            dobj[:] += -dE * self.obje
         dobj /= float(self.nloads)
         return obj / float(self.nloads)
 
 
-class VonMisesStressProblem(Problem):
+class VonMisesStressProblem(ElasticityProblem):
     """
     Topology optimization problem to minimize stress.
 
@@ -375,8 +453,8 @@ class VonMisesStressProblem(Problem):
                             [nu, 1, 0],
                             [0, 0, (1 - nu) / 2.]]) / (1 - nu**2)
 
-    def __init__(self, nelx, nely, penal, bc, side=1):
-        Problem.__init__(self, nelx, nely, penal, bc)
+    def __init__(self, nelx, nely, penalty, bc, side=1):
+        super().__init__(bc, penalty)
         self.EB = self.E(self.nu).dot(self.B(side))
         self.du = numpy.zeros((self.ndof, self.nel * self.nloads))
         self.stress = numpy.zeros(self.nel)
@@ -395,7 +473,7 @@ class VonMisesStressProblem(Problem):
         return dK
 
     def build_dK(self, xPhys, remove_constrained=True):
-        drho = self.diff_penalized_densities(xPhys)
+        drho = self.compute_diff_young_moduli(xPhys)
         blocks = [self.build_dK0(drho[i], i, remove_constrained)
                   for i in range(drho.shape[0])]
         dK = scipy.sparse.block_diag(blocks, format="coo")
@@ -456,9 +534,12 @@ class VonMisesStressProblem(Problem):
                    ds22 + 6 * s12 * ds12)
         return p * (sigma)**(p - 1) / (2.0 * sigma) * dinside
 
-    def compute_objective2(self, xPhys, dobj, p=4):
+    def compute_stress_objective(self, xPhys, dobj, p=4):
         """Compute stress objective and its gradient."""
-        rho = self.penalized_densities(xPhys)
+        # Setup and solve FE problem
+        # self.update_displacements(xPhys)
+
+        rho = self.compute_young_moduli(xPhys)
         EBu = sum([self.EB.dot(self.u[:, i][self.edofMat.T])
                    for i in range(self.nloads)])
         s11, s22, s12 = numpy.hsplit((EBu * rho / float(self.nloads)).T, 3)
@@ -490,7 +571,7 @@ class VonMisesStressProblem(Problem):
         dEBu = sum([self.EB.dot(du[:, j][rep_edofMat])
                     for j in range(self.nloads)])
         rhodEBu = numpy.tile(rho, self.nel) * dEBu
-        drho = self.diff_penalized_densities(xPhys)
+        drho = self.compute_diff_young_moduli(xPhys)
         drhoEBu = numpy.diag(drho).flatten() * numpy.tile(EBu, self.nel)
         ds11, ds22, ds12 = map(
             lambda x: x.reshape(self.nel, self.nel).T,
@@ -516,15 +597,16 @@ class VonMisesStressProblem(Problem):
             The analytic objective value.
         """
         dobja = dobj.copy()  # Analytic gradient
-        obja = self.compute_objective2(xPhys, dobja, p)  # Analytic objective
+        obja = self.compute_stress_objective(
+            xPhys, dobja, p)  # Analytic objective
         dobjf = dobj.copy()  # Finite difference of the stress
         delta = numpy.zeros(xPhys.shape)
         for i in range(xPhys.shape[0]):
             delta[[i - 1, i]] = 0, dx
             self.update_displacements(xPhys + delta)
-            s1 = self.compute_objective2(xPhys + delta, dobj.copy(), p)
+            s1 = self.compute_stress_objective(xPhys + delta, dobj.copy(), p)
             self.update_displacements(xPhys - delta)
-            s2 = self.compute_objective2(xPhys - delta, dobj.copy(), p)
+            s2 = self.compute_stress_objective(xPhys - delta, dobj.copy(), p)
             dobjf[i] = ((s1 - s2) / (2. * dx))
 
         print("Differences: {:g}".format(numpy.linalg.norm(dobjf - dobja)))
@@ -537,5 +619,5 @@ class VonMisesStressProblem(Problem):
     def compute_objective(self, xPhys, dobj):
         """Compute compliance and its gradient."""
         obj = ComplianceProblem.compute_objective(self, xPhys, dobj)
-        self.compute_objective2(xPhys, numpy.zeros(dobj.shape))
+        self.compute_stress_objective(xPhys, numpy.zeros(dobj.shape))
         return obj

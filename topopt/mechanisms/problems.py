@@ -3,12 +3,12 @@
 import numpy
 import scipy.sparse
 
-from ..problems import Problem
+from ..problems import ElasticityProblem
 from .boundary_conditions import MechanismSynthesisBoundaryConditions
 from ..utils import deleterowcol
 
 
-class MechanismSynthesisProblem(Problem):
+class MechanismSynthesisProblem(ElasticityProblem):
     r"""
     Topology optimization problem to generate compliant mechanisms.
 
@@ -55,7 +55,7 @@ class MechanismSynthesisProblem(Problem):
             The element stiffness matrix for the material.
 
         """
-        return Problem.lk(1e0, nu)
+        return ElasticityProblem.lk(1e0, nu)
 
     def __init__(self, nelx: int, nely: int, penalty: float,
                  bc: MechanismSynthesisBoundaryConditions):
@@ -74,7 +74,7 @@ class MechanismSynthesisProblem(Problem):
             Boundary conditions of the problem.
 
         """
-        Problem.__init__(self, nelx, nely, penalty, bc)
+        super().__init__(bc, penalty)
         self.Emin = 1e-6  # Minimum stiffness of elements
         self.Emax = 1e2  # Maximum stiffness of elements
         # Spring stiffnesses for the actuator and output displacement
@@ -88,10 +88,10 @@ class MechanismSynthesisProblem(Problem):
 
         Parameters
         ----------
-            xPhys:
-                The element densisities used to build the stiffness matrix.
-            remove_constrained:
-                Should the constrained nodes be removed?
+        xPhys:
+            The element densisities used to build the stiffness matrix.
+        remove_constrained:
+            Should the constrained nodes be removed?
 
         Returns
         -------
@@ -99,12 +99,9 @@ class MechanismSynthesisProblem(Problem):
 
         """
         # Build the stiffness matrix using inheritance
-        K = super(MechanismSynthesisProblem, self).build_K(
-            xPhys, remove_constrained=False).tocsc()
+        K = super().build_K(xPhys, remove_constrained=False).tocsc()
         # Add spring stiffnesses
         spring_ids = numpy.nonzero(self.f)[0]
-        tmp = self.spring_stiffnesses
-        breakpoint()
         K[spring_ids, spring_ids] += self.spring_stiffnesses
         # K = (K.T + K) / 2.  # Make sure the stiffness matrix is symmetric
         # Remove constrained dofs from matrix and convert to coo
@@ -138,19 +135,23 @@ class MechanismSynthesisProblem(Problem):
 
         Parameters
         ----------
-            xPhys:
-                The density design variables.
-            dobj:
-                The gradient of the objective to compute.
+        xPhys:
+            The density design variables.
+        dobj:
+            The gradient of the objective to compute.
 
         Returns
         -------
             The objective of the compliant mechanism synthesis problem.
 
         """
+        # Setup and solve FE problem
+        self.update_displacements(xPhys)
+
         u = self.u[:, 0][self.edofMat].reshape(-1, 8)  # Displacement
         λ = self.u[:, 1][self.edofMat].reshape(-1, 8)  # Fixed vector (Kλ = -l)
         obj = self.f[:, 1].T @ self.u[:, 0]
         self.obje[:] = (λ @ self.KE * u).sum(1)
-        dobj[:] = -self.diff_penalized_densities(xPhys) * self.obje
+        self.compute_young_moduli(xPhys, dobj)  # Stores the derivative in dobj
+        dobj *= -self.obje
         return obj

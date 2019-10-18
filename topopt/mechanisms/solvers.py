@@ -33,8 +33,7 @@ class MechanismSynthesisSolver(TopOptSolver):
                 A floating point tolerance for relative change.
 
         """
-        super(MechanismSynthesisSolver, self).__init__(
-            problem, volfrac, filter, gui, maxeval, ftol)
+        super().__init__(problem, volfrac, filter, gui, maxeval, ftol)
         self.init_obj = None
         self.vtot = problem.nelx * problem.nely * volfrac
 
@@ -61,9 +60,6 @@ class MechanismSynthesisSolver(TopOptSolver):
 
         # Display physical variables
         self.gui.update(self.xPhys)
-
-        # Setup and solve FE problem
-        self.problem.update_displacements(self.xPhys)
 
         # Objective and sensitivity
         obj = self.problem.compute_objective(self.xPhys, dobj)

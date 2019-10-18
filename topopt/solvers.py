@@ -79,10 +79,10 @@ class TopOptSolver:
 
     def __repr__(self):
         """Create a representation of the solver."""
-        return "{}(problem={!r}, volfrac={:g}, filter={!r}, gui={!r}, maxeval={:d}, ftol={:g})".format(
-            self.__class__.__name__, self.problem, self.volfrac,
-            self.filter, self.gui, self.opt.get_maxeval(),
-            self.opt.get_ftol_rel())
+        return ("{}(problem={!r}, volfrac={:g}, filter={!r}, ".format(
+            self.__class__.__name__, self.problem, self.volfrac, self.filter)
+            + "gui={!r}, maxeval={:d}, ftol={:g})".format(
+                self.gui, self.opt.get_maxeval(), self.opt.get_ftol_rel()))
 
     def optimize(self, x: numpy.ndarray) -> numpy.ndarray:
         """
@@ -144,9 +144,6 @@ class TopOptSolver:
         """
         # Filter design variables
         self.filter_variables(x)
-
-        # Setup and solve FE problem
-        self.problem.update_displacements(self.xPhys)
 
         # Objective and sensitivity
         obj = self.problem.compute_objective(self.xPhys, dobj)

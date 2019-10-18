@@ -47,15 +47,15 @@ class VonMisesStressCalculator:
 
     def penalized_densities(self, x):
         """ Compute the penalized densties. """
-        Emin, Emax, penal = (
-            self.problem.Emin, self.problem.Emax, self.problem.penal)
-        return Emin + (Emax - Emin) * x**penal
+        Emin, Emax, penalty = (
+            self.problem.Emin, self.problem.Emax, self.problem.penalty)
+        return Emin + (Emax - Emin) * x**penalty
 
     def diff_penalized_densities(self, x):
         """ Compute the penalized densties. """
-        Emin, Emax, penal = (
-            self.problem.Emin, self.problem.Emax, self.problem.penal)
-        return (Emax - Emin) * penal * x**(penal - 1)
+        Emin, Emax, penalty = (
+            self.problem.Emin, self.problem.Emax, self.problem.penalty)
+        return (Emax - Emin) * penalty * x**(penalty - 1)
 
     def calculate_principle_stresses(self, x, side=1):
         """
@@ -64,7 +64,8 @@ class VonMisesStressCalculator:
         u = self.problem.compute_displacements(x)
         rho = self.penalized_densities(x)
         EB = self.E(self.problem.nu).dot(self.B(side))
-        stress = sum([EB.dot(u[:, i][self.edofMat]) for i in range(u.shape[1])])
+        stress = sum([EB.dot(u[:, i][self.edofMat])
+                      for i in range(u.shape[1])])
         stress *= rho / float(u.shape[1])
         return numpy.hsplit(stress.T, 3)
 
@@ -113,7 +114,7 @@ class VonMisesStressCalculator:
         du = du.reshape((ndof * nel, nloads), order="F")
 
         rep_edofMat = (numpy.tile(self.edofMat, nel) + numpy.tile(
-                numpy.repeat(numpy.arange(nel) * ndof, nel), (8, 1)))
+            numpy.repeat(numpy.arange(nel) * ndof, nel), (8, 1)))
         dEBu = sum([EB.dot(du[:, j][rep_edofMat]) for j in range(nloads)])
         rhodEBu = (numpy.tile(rho, nel) * dEBu)
         drho = self.diff_penalized_densities(x)
