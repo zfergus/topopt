@@ -21,7 +21,7 @@ class GUI(object):
         Create a plot and draw the initial design.
 
         Args:
-            problem (topopt.TopOptProblem): problem to visualize
+            problem (topopt.Problem): problem to visualize
             title (str): title of the plot
         """
         self.problem = problem

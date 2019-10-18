@@ -3,12 +3,12 @@
 import numpy
 import scipy.sparse
 
-from ..problems import TopOptProblem
+from ..problems import Problem
 from .boundary_conditions import MechanismSynthesisBoundaryConditions
 from ..utils import deleterowcol
 
 
-class MechanismSynthesisProblem(TopOptProblem):
+class MechanismSynthesisProblem(Problem):
     r"""
     Topology optimization problem to generate compliant mechanisms.
 
@@ -26,11 +26,16 @@ class MechanismSynthesisProblem(TopOptProblem):
     freedom corresponding to the output point and with zeros at all other
     places.
 
-    Attributes:
-        spring_stiffnesses (numpy.ndarray): The spring stiffnesses of the
-            actuator and output displacement.
-        Emin (float): The minimum stiffness of elements.
-        Emax (float): The maximum stiffness of elements.
+    Attributes
+    ----------
+    spring_stiffnesses: numpy.ndarray
+        The spring stiffnesses of the
+        actuator and output displacement.
+    Emin: float
+        The minimum stiffness of elements.
+    Emax: float
+        The maximum stiffness of elements.
+
     """
 
     @staticmethod
@@ -38,27 +43,38 @@ class MechanismSynthesisProblem(TopOptProblem):
         """
         Build the element stiffness matrix.
 
-        Parameters:
-            E: Young's modulus of the material.
-            nu: Poisson's ratio of the material.
+        Parameters
+        ----------
+        E:
+            Young's modulus of the material.
+        nu:
+            Poisson's ratio of the material.
 
-        Returns:
+        Returns
+        -------
             The element stiffness matrix for the material.
-        """
-        return TopOptProblem.lk(1e0, nu)
 
-    def __init__(self, nelx: int, nely: int, penal: float,
+        """
+        return Problem.lk(1e0, nu)
+
+    def __init__(self, nelx: int, nely: int, penalty: float,
                  bc: MechanismSynthesisBoundaryConditions):
         """
         Create the topology optimization problem.
 
-        Parameters:
-            nelx: Number of elements in the x direction.
-            nely: Number of elements in the x direction.
-            penal: Penalty value used to penalize fractional densities in SIMP.
-            bc: Boundary conditions of the problem.
+        Parameters
+        ----------
+        nelx:
+            Number of elements in the x direction.
+        nely:
+            Number of elements in the x direction.
+        penalty:
+            Penalty value used to penalize fractional densities in SIMP.
+        bc:
+            Boundary conditions of the problem.
+
         """
-        TopOptProblem.__init__(self, nelx, nely, penal, bc)
+        Problem.__init__(self, nelx, nely, penalty, bc)
         self.Emin = 1e-6  # Minimum stiffness of elements
         self.Emax = 1e2  # Maximum stiffness of elements
         # Spring stiffnesses for the actuator and output displacement
@@ -70,18 +86,25 @@ class MechanismSynthesisProblem(TopOptProblem):
         """
         Build the stiffness matrix for the problem.
 
-        Parameters:
-            xPhys: The element densisities used to build the stiffness matrix.
-            remove_constrained: Should the constrained nodes be removed?
+        Parameters
+        ----------
+            xPhys:
+                The element densisities used to build the stiffness matrix.
+            remove_constrained:
+                Should the constrained nodes be removed?
 
-        Returns:
+        Returns
+        -------
             The stiffness matrix for the mesh.
+
         """
         # Build the stiffness matrix using inheritance
         K = super(MechanismSynthesisProblem, self).build_K(
             xPhys, remove_constrained=False).tocsc()
         # Add spring stiffnesses
         spring_ids = numpy.nonzero(self.f)[0]
+        tmp = self.spring_stiffnesses
+        breakpoint()
         K[spring_ids, spring_ids] += self.spring_stiffnesses
         # K = (K.T + K) / 2.  # Make sure the stiffness matrix is symmetric
         # Remove constrained dofs from matrix and convert to coo
@@ -113,12 +136,17 @@ class MechanismSynthesisProblem(TopOptProblem):
 
         where :math:`\mathbf{K}\boldsymbol{\lambda} = -\mathbf{l}`.
 
-        Parameters:
-            xPhys: The density design variables.
-            dobj: The gradient of the objective to compute.
+        Parameters
+        ----------
+            xPhys:
+                The density design variables.
+            dobj:
+                The gradient of the objective to compute.
 
-        Returns:
+        Returns
+        -------
             The objective of the compliant mechanism synthesis problem.
+
         """
         u = self.u[:, 0][self.edofMat].reshape(-1, 8)  # Displacement
         λ = self.u[:, 1][self.edofMat].reshape(-1, 8)  # Fixed vector (Kλ = -l)

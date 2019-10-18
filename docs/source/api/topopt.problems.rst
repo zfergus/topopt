@@ -6,7 +6,7 @@ Problems
 Base Problem
 ------------
 
-.. autoclass:: topopt.problems.TopOptProblem
+.. autoclass:: topopt.problems.Problem
     :members:
     :undoc-members:
     :special-members: __init__

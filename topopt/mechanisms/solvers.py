@@ -19,7 +19,7 @@ class MechanismSynthesisSolver(TopOptSolver):
 
         Parameters
         ----------
-            problem: :obj:`topopt.problems.TopOptProblem`
+            problem: :obj:`topopt.problems.Problem`
                 The topology optimization problem to solve.
             volfrac: float
                 The maximum fraction of the volume to use.

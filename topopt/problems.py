@@ -11,7 +11,7 @@ from .boundary_conditions import BoundaryConditions
 from .utils import deleterowcol
 
 
-class TopOptProblem(abc.ABC):
+class Problem(abc.ABC):
     """Abstract topology optimization problem."""
 
     @staticmethod
@@ -246,7 +246,7 @@ class TopOptProblem(abc.ABC):
         pass
 
 
-class ComplianceProblem(TopOptProblem):
+class ComplianceProblem(Problem):
     r"""
     Topology optimization problem to minimize compliance.
 
@@ -308,7 +308,7 @@ class ComplianceProblem(TopOptProblem):
         return obj / float(self.nloads)
 
 
-class VonMisesStressProblem(TopOptProblem):
+class VonMisesStressProblem(Problem):
     """
     Topology optimization problem to minimize stress.
 
@@ -376,7 +376,7 @@ class VonMisesStressProblem(TopOptProblem):
                             [0, 0, (1 - nu) / 2.]]) / (1 - nu**2)
 
     def __init__(self, nelx, nely, penal, bc, side=1):
-        TopOptProblem.__init__(self, nelx, nely, penal, bc)
+        Problem.__init__(self, nelx, nely, penal, bc)
         self.EB = self.E(self.nu).dot(self.B(side))
         self.du = numpy.zeros((self.ndof, self.nel * self.nloads))
         self.stress = numpy.zeros(self.nel)

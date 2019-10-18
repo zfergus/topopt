@@ -11,7 +11,7 @@ from __future__ import division
 import numpy
 import nlopt
 
-from topopt.problems import TopOptProblem
+from topopt.problems import Problem
 from topopt.filters import Filter
 from topopt.guis import GUI
 
@@ -19,14 +19,14 @@ from topopt.guis import GUI
 class TopOptSolver:
     """Solver for topology optimization problems using NLopt's MMA solver."""
 
-    def __init__(self, problem: TopOptProblem, volfrac: float, filter: Filter,
+    def __init__(self, problem: Problem, volfrac: float, filter: Filter,
                  gui: GUI, maxeval=2000, ftol=1e-3):
         """
         Create a solver to solve the problem.
 
         Parameters
         ----------
-        problem: :obj:`topopt.problems.TopOptProblem`
+        problem: :obj:`topopt.problems.Problem`
             The topology optimization problem to solve.
         volfrac: float
             The maximum fraction of the volume to use.

@@ -128,7 +128,7 @@ def title_str(nelx: int, nely: int, volfrac: float, rmin: float,
 def main(nelx: int, nely: int, volfrac: float, penalty: float, rmin: float,
          ft: int, gui: topopt.guis.GUI = None,
          bc: topopt.boundary_conditions.BoundaryConditions = None,
-         problem: topopt.problems.TopOptProblem = None,
+         problem: topopt.problems.Problem = None,
          filter: topopt.filters.Filter = None,
          solver: topopt.solvers.TopOptSolver = None) -> None:
     """
