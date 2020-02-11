@@ -693,7 +693,8 @@ class VonMisesStressProblem(ElasticityProblem):
         return dK
 
     def build_dK(self, xPhys, remove_constrained=True):
-        drho = self.compute_diff_young_moduli(xPhys)
+        drho = numpy.empty(xPhys.shape)
+        self.compute_young_moduli(xPhys, drho)
         blocks = [self.build_dK0(drho[i], i, remove_constrained)
                   for i in range(drho.shape[0])]
         dK = scipy.sparse.block_diag(blocks, format="coo")
@@ -810,7 +811,8 @@ class VonMisesStressProblem(ElasticityProblem):
         dEBu = sum([self.EB @ du[:, j][rep_edofMat]
                     for j in range(self.nloads)])
         rhodEBu = numpy.tile(rho, self.nel) * dEBu
-        drho = self.compute_diff_young_moduli(xPhys)
+        drho = numpy.empty(xPhys.shape)
+        self.compute_young_moduli(xPhys, drho)
         drhoEBu = numpy.diag(drho).flatten() * numpy.tile(EBu, self.nel)
         ds11, ds22, ds12 = map(
             lambda x: x.reshape(self.nel, self.nel).T,

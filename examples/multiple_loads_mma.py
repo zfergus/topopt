@@ -43,7 +43,7 @@ def main():
     nelx, nely, volfrac, penalty, rmin, ft = cli.parse_args(
         nelx=120, volfrac=0.2, rmin=1.5)
     bc = MultipleLoadsBoundaryConditions(nelx, nely)
-    problem = ComplianceProblem(nelx, nely, penalty, bc)
+    problem = ComplianceProblem(bc, penalty)
     cli.main(nelx, nely, volfrac, penalty, rmin, ft, bc=bc,
              problem=problem)
 

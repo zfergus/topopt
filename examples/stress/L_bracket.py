@@ -25,7 +25,7 @@ def main():
     filter = [topopt.filters.SensitivityBasedFilter,
               topopt.filters.DensityBasedFilter][ft](nelx, nely, rmin)
     solver = TopOptSolver(problem, volfrac, filter,
-                          gui, maxeval=4000, ftol=1e-5)
+                          gui, maxeval=4000, ftol_rel=1e-5)
     topopt.cli.main(nelx, nely, volfrac, penalty, rmin, ft, solver=solver)
 
 

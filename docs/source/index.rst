@@ -3,9 +3,9 @@
 TopOpt --- Topology Optimization in Python
 ==========================================
 
-.. image:: https://img.shields.io/pypi/v/topopt.svg?color=brightgreen&logo=python&logoColor=white
-   :target: https://pypi.org/project/topopt/
-   :alt: PyPi
+.. .. image:: https://img.shields.io/pypi/v/topopt.svg?color=brightgreen&logo=python&logoColor=white
+..    :target: https://pypi.org/project/topopt/
+..    :alt: PyPi
 .. image:: https://travis-ci.com/zfergus/topopt.svg?branch=master
    :target: https://travis-ci.com/zfergus/topopt
    :alt: Build
@@ -33,14 +33,15 @@ classic Messerschmitt–Bölkow–Blohm (MBB) beam in a few lines of code:
 
 .. code-block:: python
 
+    import numpy
     from topopt.boundary_conditions import MBBBeamBoundaryConditions
     from topopt.problems import ComplianceProblem
     from topopt.solvers import TopOptSolver
     from topopt.filters import DensityBasedFilter
     from topopt.guis import GUI
 
-    nelx, nely = 20, 20  # Number of elements in the x and y
-    volfrac = 0.3  # Volume fraction for constraints
+    nelx, nely = 180, 60  # Number of elements in the x and y
+    volfrac = 0.4  # Volume fraction for constraints
     penal = 3.0  # Penalty for SIMP
     rmin = 5.4  # Filter radius
 
@@ -51,13 +52,19 @@ classic Messerschmitt–Bölkow–Blohm (MBB) beam in a few lines of code:
     bc = MBBBeamBoundaryConditions(nelx, nely)
 
     # Problem to optimize given objective and constraints
-    problem = ComplianceProblem(nelx, nely, penal, bc)
+    problem = ComplianceProblem(bc, penal)
     gui = GUI(problem, "Topology Optimization Example")
     topopt_filter = DensityBasedFilter(nelx, nely, rmin)
     solver = TopOptSolver(problem, volfrac, topopt_filter, gui)
     x_opt = solver.optimize(x)
 
     input("Press enter...")
+
+**Output:**
+
+.. image:: ../../assets/imgs/mmb-beam-example.png
+    :alt: TopOpt Example
+    :align: center
 
 .. .. literalinclude:: ../../topopt/mechanisms/boundary_conditions.py
 ..     :language: python
@@ -73,12 +80,12 @@ classic Messerschmitt–Bölkow–Blohm (MBB) beam in a few lines of code:
     examples
     changelog
 
-.. toctree::
-    :hidden:
-    :maxdepth: 2
-    :caption: Developers
-
-    contributing
+.. .. toctree::
+..     :hidden:
+..     :maxdepth: 2
+..     :caption: Developers
+..
+..     contributing
 
 .. toctree::
     :hidden:
