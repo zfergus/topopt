@@ -5,12 +5,8 @@
 <!-- <a href="https://pypi.org/project/topopt/">
     <img src="https://img.shields.io/pypi/v/topopt.svg?color=brightgreen&logo=python&logoColor=white">
 </a> -->
-<a href="https://travis-ci.com/zfergus/topopt">
-    <img src="https://travis-ci.com/zfergus/topopt.svg?branch=master">
-</a>
-<a href="https://opensource.org/licenses/MIT">
-    <img src="https://img.shields.io/github/license/zfergus/topopt.svg?color=blue">
-</a>
+[![Build Status](https://travis-ci.com/zfergus/topopt.svg?token=ywnAuxJpUxbDrucLsj6b&branch=master)](https://travis-ci.com/zfergus/topopt)
+[![License](https://img.shields.io/github/license/zfergus/topopt.svg?color=blue)](https://opensource.org/licenses/MIT)
 
 **Warning:** this library is in early stages of development and consequently
 the API may change to better improve usability.
