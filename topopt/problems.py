@@ -4,6 +4,7 @@ import abc
 
 import numpy
 import scipy.sparse
+import scipy.sparse.linalg
 import cvxopt
 import cvxopt.cholmod
 
@@ -94,6 +95,7 @@ class Problem(abc.ABC):
 
         Returns
         -------
+        numpy.ndarray
             The penalized densities used for SIMP.
 
         """
@@ -120,6 +122,7 @@ class Problem(abc.ABC):
 
         Returns
         -------
+        float
             The objective value.
 
         """
@@ -161,7 +164,8 @@ class ElasticityProblem(Problem):
 
         Returns
         -------
-            The element stiffness matrix for the material
+        numpy.ndarray
+            The element stiffness matrix for the material.
 
         """
         k = numpy.array([
@@ -242,6 +246,7 @@ class ElasticityProblem(Problem):
 
         Returns
         -------
+        numpy.ndarray
             The elements' Young's modulus.
 
         """
@@ -253,7 +258,7 @@ class ElasticityProblem(Problem):
         return (self.Emax - self.Emin) * rho + self.Emin
 
     def build_K(self, xPhys: numpy.ndarray, remove_constrained: bool = True
-                ) -> scipy.sparse.coo.coo_matrix:
+                ) -> scipy.sparse.coo_matrix:
         """
         Build the stiffness matrix for the problem.
 
@@ -266,6 +271,7 @@ class ElasticityProblem(Problem):
 
         Returns
         -------
+        scipy.sparse.coo_matrix
             The stiffness matrix for the mesh.
 
         """
@@ -293,6 +299,7 @@ class ElasticityProblem(Problem):
 
         Returns
         -------
+        numpy.ndarray
             The distplacements solve using linear elastic finite element
             analysis.
 
@@ -367,6 +374,7 @@ class ComplianceProblem(ElasticityProblem):
 
         Returns
         -------
+        float
             The compliance value.
 
         """
@@ -379,9 +387,219 @@ class ComplianceProblem(ElasticityProblem):
         E = self.compute_young_moduli(xPhys, dE)
         for i in range(self.nloads):
             ui = self.u[:, i][self.edofMat].reshape(-1, 8)
-            self.obje[:] = (ui.dot(self.KE) * ui).sum(1)
+            self.obje[:] = (ui @ self.KE * ui).sum(1)
             obj += (E * self.obje).sum()
             dobj[:] += -dE * self.obje
+        dobj /= float(self.nloads)
+        return obj / float(self.nloads)
+
+
+class HarmonicLoadsProblem(ElasticityProblem):
+    r"""
+    Topology optimization problem to minimize dynamic compliance.
+
+    Replaces standard forces with undamped forced vibrations.
+
+    :math:`\begin{aligned}
+    \min_{\boldsymbol{\rho}} \quad & \mathbf{f}^T\mathbf{u}\\
+    \textrm{subject to}: \quad & \mathbf{S}\mathbf{u} = \mathbf{f}\\
+    & \sum_{e=1}^N v_e\rho_e \leq V_\text{frac},
+    \quad 0 < \rho_\min \leq \rho_e \leq 1\\
+    \end{aligned}`
+
+    where :math:`\mathbf{f}` is the amplitude of the load, :math:`\mathbf{u}`
+    is the amplitude of vibration, and :math:`\mathbf{S}` is the system matrix
+    (or "dynamic striffness" matrix) defined as
+
+    :math:`\begin{aligned}
+    \mathbf{S} = \mathbf{K} - \omega^2\mathbf{M}
+    \end{aligned}`
+
+    where :math:`\omega` is the angular frequency of the load, and
+    :math:`\mathbf{M}` is the global mass matrix.
+    """
+
+    @staticmethod
+    def lm(nel: int) -> numpy.ndarray:
+        r"""
+        Build the element mass matrix.
+
+        :math:`M = \frac{1}{9 \times 4n}\begin{bmatrix}
+        4 & 0 & 2 & 0 & 1 & 0 & 2 & 0 \\
+        0 & 4 & 0 & 2 & 0 & 1 & 0 & 2 \\
+        2 & 0 & 4 & 0 & 2 & 0 & 1 & 0 \\
+        0 & 2 & 0 & 4 & 0 & 2 & 0 & 1 \\
+        1 & 0 & 2 & 0 & 4 & 0 & 2 & 0 \\
+        0 & 1 & 0 & 2 & 0 & 4 & 0 & 2 \\
+        2 & 0 & 1 & 0 & 2 & 0 & 4 & 0 \\
+        0 & 2 & 0 & 1 & 0 & 2 & 0 & 4
+        \end{bmatrix}`
+
+        Where :math:`n` is the total number of elements. The total mass is
+        equal to unity.
+
+        Parameters
+        ----------
+        nel:
+            The total number of elements.
+
+        Returns
+        -------
+        numpy.ndarray
+            The element mass matrix for the material.
+
+        """
+        return numpy.array([
+            [4, 0, 2, 0, 1, 0, 2, 0],
+            [0, 4, 0, 2, 0, 1, 0, 2],
+            [2, 0, 4, 0, 2, 0, 1, 0],
+            [0, 2, 0, 4, 0, 2, 0, 1],
+            [1, 0, 2, 0, 4, 0, 2, 0],
+            [0, 1, 0, 2, 0, 4, 0, 2],
+            [2, 0, 1, 0, 2, 0, 4, 0],
+            [0, 2, 0, 1, 0, 2, 0, 4]], dtype=float) / (36 * nel)
+
+    def __init__(self, bc: BoundaryConditions, penalty: float):
+        """
+        Create the topology optimization problem.
+
+        Parameters
+        ----------
+        bc:
+            The boundary conditions of the problem.
+        penalty:
+            The penalty value used to penalize fractional densities in SIMP.
+
+        """
+        super().__init__(bc, penalty)
+        self.angular_frequency = 0e-2
+
+    def build_indices(self) -> None:
+        """Build the index vectors for the finite element coo matrix format."""
+        super().build_indices()
+        self.ME = self.lm(self.nel)
+
+    def build_M(self, xPhys: numpy.ndarray, remove_constrained: bool = True
+                ) -> scipy.sparse.coo_matrix:
+        """
+        Build the stiffness matrix for the problem.
+
+        Parameters
+        ----------
+        xPhys:
+            The element densisities used to build the stiffness matrix.
+        remove_constrained:
+            Should the constrained nodes be removed?
+
+        Returns
+        -------
+        scipy.sparse.coo_matrix
+            The stiffness matrix for the mesh.
+
+        """
+        # vals = numpy.tile(self.ME.flatten(), xPhys.size)
+        vals = (self.ME.reshape(-1, 1) *
+                self.penalize_densities(xPhys)).flatten(order='F')
+        M = scipy.sparse.coo_matrix((vals, (self.iK, self.jK)),
+                                    shape=(self.ndof, self.ndof))
+        if remove_constrained:
+            # Remove constrained dofs from matrix and convert to coo
+            M = deleterowcol(M.tocsc(), self.fixed, self.fixed).tocoo()
+        return M
+
+    def compute_displacements(self, xPhys: numpy.ndarray) -> numpy.ndarray:
+        r"""
+        Compute the amplitude of vibration given the densities.
+
+        Compute the amplitude of vibration, :math:`\mathbf{u}`, using linear
+        elastic finite element analysis (solving
+        :math:`\mathbf{S}\mathbf{u} = \mathbf{f}` where :math:`\mathbf{S} =
+        \mathbf{K} - \omega^2\mathbf{M}` is the system matrix and
+        :math:`\mathbf{f}` is the force vector).
+
+        Parameters
+        ----------
+        xPhys:
+            The element densisities used to build the stiffness matrix.
+
+        Returns
+        -------
+        numpy.ndarray
+            The displacements solve using linear elastic finite element
+            analysis.
+
+        """
+        # Setup and solve FE problem
+        K = self.build_K(xPhys)
+        M = self.build_M(xPhys)
+        S = (K - self.angular_frequency**2 * M).tocoo()
+        cvxopt_S = cvxopt.spmatrix(
+            S.data, S.row.astype(numpy.int), S.col.astype(numpy.int))
+        # Solve system
+        F = cvxopt.matrix(self.f[self.free, :])
+        try:
+            # F stores solution after solve
+            cvxopt.cholmod.linsolve(cvxopt_S, F)
+        except Exception:
+            F = scipy.sparse.linalg.spsolve(S.tocsc(), self.f[self.free, :])
+            F = F.reshape(-1, self.nloads)
+        new_u = self.u.copy()
+        new_u[self.free, :] = numpy.array(F)[:, :]
+        return new_u
+
+    def compute_objective(
+            self, xPhys: numpy.ndarray, dobj: numpy.ndarray) -> float:
+        r"""
+        Compute compliance and its gradient.
+
+        The objective is :math:`\mathbf{f}^{T} \mathbf{u}`. The gradient of
+        the objective is
+
+        :math:`\begin{align}
+        \mathbf{f}^T\mathbf{u} &= \mathbf{f}^T\mathbf{u} -
+        \boldsymbol{\lambda}^T(\mathbf{K}\mathbf{u} - \mathbf{f})\\
+        \frac{\partial}{\partial \rho_e}(\mathbf{f}^T\mathbf{u}) &=
+        (\mathbf{K}\boldsymbol{\lambda} - \mathbf{f})^T
+        \frac{\partial \mathbf u}{\partial \rho_e} +
+        \boldsymbol{\lambda}^T\frac{\partial \mathbf K}{\partial \rho_e}
+        \mathbf{u}
+        = \mathbf{u}^T\frac{\partial \mathbf K}{\partial \rho_e}\mathbf{u}
+        \end{align}`
+
+        where :math:`\boldsymbol{\lambda} = \mathbf{u}`.
+
+        Parameters
+        ----------
+        xPhys:
+            The element densities.
+        dobj:
+            The gradient of compliance.
+
+        Returns
+        -------
+        float
+            The compliance value.
+
+        """
+        # Setup and solve FE problem
+        self.update_displacements(xPhys)
+
+        obj = 0.0
+        dobj[:] = 0.0
+        dE = numpy.empty(xPhys.shape)
+        E = self.compute_young_moduli(xPhys, dE)
+        drho = numpy.empty(xPhys.shape)
+        penalty = self.penalty
+        self.penalty = 2
+        rho = self.penalize_densities(xPhys, drho)
+        self.penalty = penalty
+        for i in range(self.nloads):
+            ui = self.u[:, i][self.edofMat].reshape(-1, 8)
+            obje1 = (ui @ self.KE * ui).sum(1)
+            obje2 = (ui @ (-self.angular_frequency**2 * self.ME) * ui).sum(1)
+            self.obje[:] = obje1 + obje2
+            obj += (E * obje1 + rho * obje2).sum()
+            dobj[:] += -(dE * obje1 + drho * obje2)
         dobj /= float(self.nloads)
         return obj / float(self.nloads)
 
@@ -419,6 +637,7 @@ class VonMisesStressProblem(ElasticityProblem):
 
         Returns
         -------
+        numpy.ndarray
             The strain-displacement matrix for a 2D regular grid.
 
         """
@@ -446,6 +665,7 @@ class VonMisesStressProblem(ElasticityProblem):
 
         Returns
         -------
+        numpy.ndarray
             The constitutive matrix for a 2D regular grid.
 
         """
@@ -455,7 +675,7 @@ class VonMisesStressProblem(ElasticityProblem):
 
     def __init__(self, nelx, nely, penalty, bc, side=1):
         super().__init__(bc, penalty)
-        self.EB = self.E(self.nu).dot(self.B(side))
+        self.EB = self.E(self.nu) @ self.B(side)
         self.du = numpy.zeros((self.ndof, self.nel * self.nloads))
         self.stress = numpy.zeros(self.nel)
         self.dstress = numpy.zeros(self.nel)
@@ -492,14 +712,22 @@ class VonMisesStressProblem(ElasticityProblem):
             * Properly document what the sigma variables represent.
             * Rename the sigma variables to something more readable.
 
-        Parameters:
-            s11: :math:`\sigma_{11}`
-            s22: :math:`\sigma_{22}`
-            s12: :math:`\sigma_{12}`
-            p: The power (:math:`p`) to raise the von Mises stress.
+        Parameters
+        ----------
+        s11:
+            :math:`\sigma_{11}`
+        s22:
+            :math:`\sigma_{22}`
+        s12:
+            :math:`\sigma_{12}`
+        p:
+            The power (:math:`p`) to raise the von Mises stress.
 
-        Returns:
+        Returns
+        -------
+        numpy.ndarray
             The von Mises stress to the :math:`p^{\text{th}}` power.
+
         """
         return numpy.sqrt(s11**2 - s11 * s22 + s22**2 + 3 * s12**2)**p
 
@@ -516,18 +744,29 @@ class VonMisesStressProblem(ElasticityProblem):
             * Properly document what the sigma variables represent.
             * Rename the sigma variables to something more readable.
 
-        Parameters:
-            s11: :math:`\sigma_{11}`
-            s22: :math:`\sigma_{22}`
-            s12: :math:`\sigma_{12}`
-            ds11: :math:`\nabla\sigma_{11}`
-            ds22: :math:`\nabla\sigma_{22}`
-            ds12: :math:`\nabla\sigma_{12}`
-            p: The power (:math:`p`) to raise the von Mises stress.
+        Parameters
+        ----------
+        s11:
+            :math:`\sigma_{11}`
+        s22:
+            :math:`\sigma_{22}`
+        s12:
+            :math:`\sigma_{12}`
+        ds11:
+            :math:`\nabla\sigma_{11}`
+        ds22:
+            :math:`\nabla\sigma_{22}`
+        ds12:
+            :math:`\nabla\sigma_{12}`
+        p:
+            The power (:math:`p`) to raise the von Mises stress.
 
-        Returns:
+        Returns
+        -------
+        numpy.ndarray
             The gradient of the von Mises stress to the :math:`p^{\text{th}}`
             power.
+
         """
         sigma = numpy.sqrt(s11**2 - s11 * s22 + s22**2 + 3 * s12**2)
         dinside = (2 * s11 * ds11 - s11 * ds22 - ds11 * s22 + 2 * s22 *
@@ -540,7 +779,7 @@ class VonMisesStressProblem(ElasticityProblem):
         # self.update_displacements(xPhys)
 
         rho = self.compute_young_moduli(xPhys)
-        EBu = sum([self.EB.dot(self.u[:, i][self.edofMat.T])
+        EBu = sum([self.EB @ self.u[:, i][self.edofMat.T]
                    for i in range(self.nloads)])
         s11, s22, s12 = numpy.hsplit((EBu * rho / float(self.nloads)).T, 3)
         # Update the stress for plotting
@@ -557,7 +796,7 @@ class VonMisesStressProblem(ElasticityProblem):
         # Setup dK @ u
         dK = self.build_dK(xPhys).tocsc()
         U = numpy.tile(self.u[self.free, :], (self.nel, 1))
-        dKu = dK.dot(U).reshape((-1, self.nel * self.nloads), order="F")
+        dKu = (dK @ U).reshape((-1, self.nel * self.nloads), order="F")
 
         # Solve system and solve for du: K @ du = dK @ u
         rhs = cvxopt.matrix(dKu)
@@ -568,7 +807,7 @@ class VonMisesStressProblem(ElasticityProblem):
         rep_edofMat = (numpy.tile(self.edofMat.T, self.nel) + numpy.tile(
             numpy.repeat(numpy.arange(self.nel) * self.ndof, self.nel),
             (8, 1)))
-        dEBu = sum([self.EB.dot(du[:, j][rep_edofMat])
+        dEBu = sum([self.EB @ du[:, j][rep_edofMat]
                     for j in range(self.nloads)])
         rhodEBu = numpy.tile(rho, self.nel) * dEBu
         drho = self.compute_diff_young_moduli(xPhys)
@@ -587,14 +826,22 @@ class VonMisesStressProblem(ElasticityProblem):
         """
         Calculate the gradient of the stresses using finite differences.
 
-        Parameters:
-            xPhys: The element densities.
-            dobj: The gradient of the stresses to compute.
-            p: The exponent for computing the softmax of the stresses.
-            dx: The difference in x values used for finite differences.
+        Parameters
+        ----------
+        xPhys:
+            The element densities.
+        dobj:
+            The gradient of the stresses to compute.
+        p:
+            The exponent for computing the softmax of the stresses.
+        dx:
+            The difference in x values used for finite differences.
 
-        Returns:
+        Returns
+        -------
+        float
             The analytic objective value.
+
         """
         dobja = dobj.copy()  # Analytic gradient
         obja = self.compute_stress_objective(

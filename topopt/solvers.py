@@ -20,7 +20,7 @@ class TopOptSolver:
     """Solver for topology optimization problems using NLopt's MMA solver."""
 
     def __init__(self, problem: Problem, volfrac: float, filter: Filter,
-                 gui: GUI, maxeval=2000, ftol=1e-3):
+                 gui: GUI, maxeval=2000, ftol_rel=1e-3):
         """
         Create a solver to solve the problem.
 
@@ -48,13 +48,13 @@ class TopOptSolver:
         self.opt = nlopt.opt(nlopt.LD_MMA, n)
         self.xPhys = numpy.ones(n)
 
-        # set bounds
-        self.opt.set_upper_bounds(numpy.ones(n))
+        # set bounds on the value of x (0 ≤ x ≤ 1)
         self.opt.set_lower_bounds(numpy.zeros(n))
+        self.opt.set_upper_bounds(numpy.ones(n))
 
         # set stopping criteria
-        self.opt.set_maxeval(maxeval)
-        self.opt.set_ftol_rel(ftol)
+        self.maxeval = maxeval
+        self.ftol_rel = ftol_rel
 
         # set objective and constraint functions
         self.opt.set_min_objective(self.objective_function)
@@ -84,17 +84,36 @@ class TopOptSolver:
             + "gui={!r}, maxeval={:d}, ftol={:g})".format(
                 self.gui, self.opt.get_maxeval(), self.opt.get_ftol_rel()))
 
+    @property
+    def ftol_rel(self):
+        """:obj:`float`: Relative tolerance for convergence."""
+        return self.opt.get_ftol_rel()
+
+    @ftol_rel.setter
+    def ftol_rel(self, ftol_rel):
+        self.opt.set_ftol_rel(ftol_rel)
+
+    @property
+    def maxeval(self):
+        """:obj:`int`: Maximum number of objective evaluations (iterations)."""
+        return self.opt.get_maxeval()
+
+    @maxeval.setter
+    def maxeval(self, ftol_rel):
+        self.opt.set_maxeval(ftol_rel)
+
     def optimize(self, x: numpy.ndarray) -> numpy.ndarray:
         """
         Optimize the problem.
 
         Parameters
         ----------
-            x: numpy.ndarray
-                The initial value for the design variables.
+        x:
+            The initial value for the design variables.
 
         Returns
         -------
+        numpy.ndarray
             The optimal value of x found.
 
         """
@@ -108,13 +127,13 @@ class TopOptSolver:
 
         Parameters
         ----------
-            x: numpy.ndarray
-                The variables to be filtered.
+        x:
+            The variables to be filtered.
 
         Returns
         -------
-            numpy.ndarray
-                The filtered "physical" variables.
+        numpy.ndarray
+            The filtered "physical" variables.
 
         """
         self.filter.filter_variables(x, self.xPhys)
@@ -131,15 +150,15 @@ class TopOptSolver:
 
         Parameters
         ----------
-            x: numpy.ndarray
-                The design variables for which to compute the objective.
-            dobj: numpy.ndarray
-                The gradient of the objective to compute.
+        x:
+            The design variables for which to compute the objective.
+        dobj:
+            The gradient of the objective to compute.
 
         Returns
         -------
-            float
-                The objective value.
+        float
+            The objective value.
 
         """
         # Filter design variables
@@ -163,17 +182,17 @@ class TopOptSolver:
 
         Parameters
         ----------
-            x: numpy.ndarray
-                The design variables for which to compute the objective.
-            dobj: numpy.ndarray
-                The gradient of the objective to compute.
-            epsilon: float
-                Change in the finite difference to compute the gradient.
+        x:
+            The design variables for which to compute the objective.
+        dobj:
+            The gradient of the objective to compute.
+        epsilon:
+            Change in the finite difference to compute the gradient.
 
         Returns
         -------
-            float
-                The objective value.
+        float
+            The objective value.
 
         """
         obj = self.objective_function(x, dobj)
@@ -200,16 +219,15 @@ class TopOptSolver:
 
         Parameters
         ----------
-            x: numpy.ndarray
-                The design variables for which to compute the volume
-                constraint.
-            dobj: numpy.ndarray
-                The gradient of the volume constraint to compute.
+        x:
+            The design variables for which to compute the volume constraint.
+        dobj:
+            The gradient of the volume constraint to compute.
 
         Returns
         -------
-            float
-                The volume constraint value.
+        float
+            The volume constraint value.
 
         """
         # Filter design variables

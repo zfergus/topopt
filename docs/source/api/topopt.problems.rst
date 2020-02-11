@@ -18,7 +18,15 @@ Compliance Problem
     :members:
     :undoc-members:
     :special-members: __init__
-    
+
+Time-Harmonic Loads Problem
+---------------------------
+
+.. autoclass:: topopt.problems.HarmonicLoadsProblem
+    :members:
+    :undoc-members:
+    :special-members: __init__
+
 von Mises Stress Problem
 ------------------------
 

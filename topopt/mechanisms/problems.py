@@ -57,8 +57,8 @@ class MechanismSynthesisProblem(ElasticityProblem):
         """
         return ElasticityProblem.lk(1e0, nu)
 
-    def __init__(self, nelx: int, nely: int, penalty: float,
-                 bc: MechanismSynthesisBoundaryConditions):
+    def __init__(
+            self, bc: MechanismSynthesisBoundaryConditions, penalty: float):
         """
         Create the topology optimization problem.
 

@@ -1,14 +1,10 @@
 language: python
-matrix:
-  include:
-    - os: linux
-      dist: bionic
-      sudo: required
-      language: python
-      python: "3.7"
-    - os: osx
-      language: python
-      python: "3.8"
+python:
+  - "3.4"
+  - "3.5"
+  - "3.6"      # current default Python on Travis CI
+  - "3.7"
+  - "3.8"
 # command to install dependencies
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -y libopenblas-dev; fi

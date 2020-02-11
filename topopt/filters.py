@@ -56,64 +56,160 @@ class Filter(abc.ABC):
             (sH, (iH, jH)), shape=(nelx * nely, nelx * nely)).tocsc()
         self.Hs = self.H.sum(1)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Create a string representation of the filter."""
         return self.__class__.__name__
 
-    def __format__(self, format_spec):
+    def __format__(self, format_spec) -> str:
         """Create a formated representation of the filter."""
         return str(self)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Create a formated representation of the filter."""
         return self._repr_string
 
     @abc.abstractmethod
-    def filter_variables(self, x, xPhys):
-        """Filter the variable of the solution to produce xPhys."""
+    def filter_variables(self, x: numpy.ndarray, xPhys: numpy.ndarray) -> None:
+        """
+        Filter the variable of the solution to produce xPhys.
+
+        Parameters
+        ----------
+        x:
+            The raw density values.
+        xPhys:
+            The filtered density values to be computed
+
+        """
         pass
 
     @abc.abstractmethod
-    def filter_objective_sensitivities(self, xPhys, dobj):
-        """Filter derivative of the objective."""
+    def filter_objective_sensitivities(
+            self, xPhys: numpy.ndarray, dobj: numpy.ndarray) -> None:
+        """
+        Filter derivative of the objective.
+
+        Parameters
+        ----------
+        xPhys:
+            The filtered density values.
+        dobj:
+            The filtered objective sensitivities to be computed.
+
+        """
         pass
 
     @abc.abstractmethod
-    def filter_volume_sensitivities(self, _xPhys, dv):
-        """Filter derivative of the volume."""
+    def filter_volume_sensitivities(
+            self, xPhys: numpy.ndarray, dv: numpy.ndarray) -> None:
+        """
+        Filter derivative of the volume.
+
+        Parameters
+        ----------
+        xPhys:
+            The filtered density values.
+        dv:
+            The filtered volume sensitivities to be computed.
+
+        """
         pass
 
 
 class SensitivityBasedFilter(Filter):
     """Sensitivity based filter of solutions."""
 
-    def filter_variables(self, x, xPhys):
-        """Filter the variable of the solution to produce xPhys."""
+    def filter_variables(self, x: numpy.ndarray, xPhys: numpy.ndarray) -> None:
+        """
+        Filter the variable of the solution to produce xPhys.
+
+        Parameters
+        ----------
+        x:
+            The raw density values.
+        xPhys:
+            The filtered density values to be computed
+
+        """
         xPhys[:] = x
 
-    def filter_objective_sensitivities(self, xPhys, dobj):
-        """Filter derivative of the objective."""
+    def filter_objective_sensitivities(
+            self, xPhys: numpy.ndarray, dobj: numpy.ndarray) -> None:
+        """
+        Filter derivative of the objective.
+
+        Parameters
+        ----------
+        xPhys:
+            The filtered density values.
+        dobj:
+            The filtered objective sensitivities to be computed.
+
+        """
         dobj[:] = (numpy.asarray(
             (self.H * (xPhys * dobj))[numpy.newaxis].T / self.Hs)[:, 0] /
             numpy.maximum(0.001, xPhys))
 
-    def filter_volume_sensitivities(self, _xPhys, dv):
-        """Filter derivative of the volume."""
-        pass
+    def filter_volume_sensitivities(
+            self, xPhys: numpy.ndarray, dv: numpy.ndarray) -> None:
+        """
+        Filter derivative of the volume.
+
+        Parameters
+        ----------
+        xPhys:
+            The filtered density values.
+        dv:
+            The filtered volume sensitivities to be computed.
+
+        """
+        return
 
 
 class DensityBasedFilter(Filter):
     """Density based filter of solutions."""
 
-    def filter_variables(self, x, xPhys):
-        """Filter the variable of the solution to produce xPhys."""
+    def filter_variables(self, x: numpy.ndarray, xPhys: numpy.ndarray) -> None:
+        """
+        Filter the variable of the solution to produce xPhys.
+
+        Parameters
+        ----------
+        x:
+            The raw density values.
+        xPhys:
+            The filtered density values to be computed
+
+        """
         xPhys[:] = numpy.asarray(self.H * x[numpy.newaxis].T / self.Hs)[:, 0]
 
-    def filter_objective_sensitivities(self, xPhys, dobj):
-        """Filter derivative of the objective."""
+    def filter_objective_sensitivities(
+            self, xPhys: numpy.ndarray, dobj: numpy.ndarray) -> None:
+        """
+        Filter derivative of the objective.
+
+        Parameters
+        ----------
+        xPhys:
+            The filtered density values.
+        dobj:
+            The filtered objective sensitivities to be computed.
+
+        """
         dobj[:] = numpy.asarray(
             self.H * (dobj[numpy.newaxis].T / self.Hs))[:, 0]
 
-    def filter_volume_sensitivities(self, _xPhys, dv):
-        """Filter derivative of the volume."""
+    def filter_volume_sensitivities(
+            self, xPhys: numpy.ndarray, dv: numpy.ndarray) -> None:
+        """
+        Filter derivative of the volume.
+
+        Parameters
+        ----------
+        xPhys:
+            The filtered density values.
+        dv:
+            The filtered volume sensitivities to be computed.
+
+        """
         dv[:] = numpy.asarray(self.H * (dv[numpy.newaxis].T / self.Hs))[:, 0]

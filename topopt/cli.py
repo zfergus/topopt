@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """Command-line utility to run topology optimization."""
-from __future__ import division, print_function
 
 import textwrap
 import argparse
@@ -12,12 +11,6 @@ import topopt.boundary_conditions
 import topopt.problems
 import topopt.filters
 import topopt.solvers
-
-# Python 2/3 compatibility
-try:
-    input = raw_input
-except NameError:
-    pass
 
 
 def create_parser(nelx: int = 180, nely: int = 60, volfrac: float = 0.4,
@@ -171,8 +164,7 @@ def main(nelx: int, nely: int, volfrac: float, penalty: float, rmin: float,
             if bc is None:
                 bc = topopt.boundary_conditions.MBBBeamBoundaryConditions(
                     nelx, nely)
-            problem = topopt.problems.ComplianceProblem(
-                nelx, nely, penalty, bc)
+            problem = topopt.problems.ComplianceProblem(bc, penalty)
         gui = gui if gui else topopt.guis.GUI(
             problem, title_str(nelx, nely, volfrac, rmin, penalty))
         filter = (filter if filter else [

@@ -24,7 +24,7 @@ def main():
     bc = DisplacementInverterBoundaryConditions(nelx, nely)
     # bc = GripperBoundaryConditions(nelx, nely)
     # bc = CrossSensitivityExampleBoundaryConditions(nelx, nely)
-    problem = MechanismSynthesisProblem(nelx, nely, penalty, bc)
+    problem = MechanismSynthesisProblem(bc, penalty)
     title = cli.title_str(nelx, nely, volfrac, rmin, penalty)
     gui = GUI(problem, title)
     filter = [SensitivityBasedFilter, DensityBasedFilter][ft](nelx, nely, rmin)
