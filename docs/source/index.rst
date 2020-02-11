@@ -3,9 +3,9 @@
 TopOpt --- Topology Optimization in Python
 ==========================================
 
-.. .. image:: https://img.shields.io/pypi/v/topopt.svg?color=brightgreen&logo=python&logoColor=white
-..    :target: https://pypi.org/project/topopt/
-..    :alt: PyPi
+.. image:: https://img.shields.io/pypi/v/topopt.svg?color=brightgreen&logo=python&logoColor=white
+   :target: https://pypi.org/project/topopt/
+   :alt: PyPi
 .. image:: https://travis-ci.com/zfergus/topopt.svg?branch=master
    :target: https://travis-ci.com/zfergus/topopt
    :alt: Build
