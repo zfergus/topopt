@@ -1,0 +1,12 @@
+Sphinx
+sphinx-autodoc-napoleon-typehints
+sphinx-autodoc-typehints
+sphinxcontrib-applehelp
+sphinxcontrib-bibtex
+sphinxcontrib-devhelp
+sphinxcontrib-htmlhelp
+sphinxcontrib-jsmath
+sphinxcontrib-napoleon
+sphinxcontrib-qthelp
+sphinxcontrib-serializinghtml
+sphinxcontrib-websupport
