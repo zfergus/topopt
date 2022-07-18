@@ -3,7 +3,7 @@
 **A Python Library for Topology Optimization**
 
 [![Install](https://img.shields.io/pypi/v/topopt.svg?color=brightgreen&logo=python&logoColor=white)](https://pypi.org/project/topopt/)
-[![Build Status](https://travis-ci.com/zfergus/topopt.svg?token=ywnAuxJpUxbDrucLsj6b&branch=master)](https://travis-ci.com/zfergus/topopt)
+[![Tests](https://github.com/zfergus/topopt/actions/workflows/continuous.yml/badge.svg)](https://github.com/zfergus/topopt/actions/workflows/continuous.yml)
 [![Documentation Status](https://readthedocs.org/projects/pytopopt/badge/?version=latest)](https://pytopopt.readthedocs.io/en/latest/?badge=latest)
 [![License](https://img.shields.io/github/license/zfergus/topopt.svg?color=blue)](https://opensource.org/licenses/MIT)
 
