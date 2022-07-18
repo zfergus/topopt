@@ -26,8 +26,6 @@ jobs:
           include:
             - os: ubuntu-latest
               name: Linux
-            - os: windows-latest
-              name: Windows
             - os: macOS-latest
               name: macOS
       steps:
